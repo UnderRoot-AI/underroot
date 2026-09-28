@@ -79,7 +79,7 @@ const gu: Record<TranslationKeys, string> = {
   forgotPasswordDesc: "નોંધાયેલ ઇ-મેઇલ દાખલ કરો — અમે પાસવર્ડ રીસેટ લિંક મોકલીશું.",
   sendResetLink: "રીસેટ લિંક મોકલો",
   resetLinkSent: "રીસેટ લિંક મોકલાઈ!",
-  resetLinkSentDesc: "પાસવર્ડ રીસેટ લિંક માટે ઇ-મેઇલ ઇનબૉક્સ ચેક કરો. 15 મિનિટમાં સમાપ્ત.",
+  resetLinkSentDesc: "પાસવર્ડ રીસેટ લિંક માટે ઇ-મેઇલ ઇનબૉક્સ ચેક કરો. 60 મિનિટમાં સમાપ્ત.",
   checkSpam: "ન દેખાય તો સ્પૅમ ફોલ્ડર ચેક કરો.",
   backToLogin: "સાઇન ઇન પર પાછા",
 

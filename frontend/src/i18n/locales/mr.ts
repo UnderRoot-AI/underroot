@@ -79,7 +79,7 @@ const mr: Record<TranslationKeys, string> = {
   forgotPasswordDesc: "नोंदणीकृत ईमेल टाका आणि आम्ही रीसेट लिंक पाठवू.",
   sendResetLink: "रीसेट लिंक पाठवा",
   resetLinkSent: "रीसेट लिंक पाठवली!",
-  resetLinkSentDesc: "संकेतशब्द रीसेट लिंकसाठी इनबॉक्स तपासा. 15 मिनिटांत कालबाह्य.",
+  resetLinkSentDesc: "संकेतशब्द रीसेट लिंकसाठी इनबॉक्स तपासा. 60 मिनिटांत कालबाह्य.",
   checkSpam: "स्पॅम फोल्डर तपासा.",
   backToLogin: "साइन इनवर परत",
 

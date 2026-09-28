@@ -78,7 +78,7 @@ const en = {
   forgotPasswordDesc: "Enter your registered email and we'll send you a link to reset your password.",
   sendResetLink: "Send reset link",
   resetLinkSent: "Reset link sent!",
-  resetLinkSentDesc: "Check your inbox for the password reset link. It expires in 15 minutes.",
+  resetLinkSentDesc: "Check your inbox for the password reset link. It expires in 60 minutes.",
   checkSpam: "Check your spam folder if you don't see it.",
   backToLogin: "Back to sign in",
 

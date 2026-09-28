@@ -79,7 +79,7 @@ const hi: Record<TranslationKeys, string> = {
   forgotPasswordDesc: "अपना पंजीकृत ईमेल दर्ज करें और हम आपको पासवर्ड रीसेट लिंक भेजेंगे।",
   sendResetLink: "रीसेट लिंक भेजें",
   resetLinkSent: "रीसेट लिंक भेजा गया!",
-  resetLinkSentDesc: "पासवर्ड रीसेट लिंक के लिए अपना इनबॉक्स देखें। यह 15 मिनट में समाप्त हो जाएगा।",
+  resetLinkSentDesc: "पासवर्ड रीसेट लिंक के लिए अपना इनबॉक्स देखें। यह 60 मिनट में समाप्त हो जाएगा।",
   checkSpam: "अगर नहीं दिखे तो स्पैम फ़ोल्डर देखें।",
   backToLogin: "साइन इन पर वापस",
 
