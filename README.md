@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Smart Soil Health Detection and Decision Support System — Final
 
 This final version keeps the existing React UI structure/style and adds the requested end-to-end workflow:
@@ -280,3 +281,7 @@ Users who provide a phone number during signup are taken to the phone verificati
 ## Language switching
 
 The language selector supports English, Hindi and Gujarati. The selected language is persisted locally and to the signed-in user's profile. A global translation layer also covers static labels, buttons, headings, placeholders and common page text that was previously hard-coded, so changing language updates the visible application UI without changing the existing visual design.
+=======
+# underroot
+AI-powered soil health intelligence platform for smarter farming.
+>>>>>>> fd9525b3c1b423b4bd00b885b8547172bac39086
