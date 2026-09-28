@@ -1,0 +1,16 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.36
+python-multipart==0.0.20
+PyJWT==2.10.1
+pydantic-settings==2.7.1
+pypdf==5.1.0
+pandas==2.2.3
+scikit-learn==1.8.0
+joblib==1.4.2
+Pillow==12.3.0
+pytesseract==0.3.13
+PyMuPDF==1.26.7
+reportlab==4.4.9
+pyserial==3.5
+email-validator==2.2.0
