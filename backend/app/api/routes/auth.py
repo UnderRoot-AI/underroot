@@ -66,10 +66,11 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     digest = hash_verification_token(token)
     user = db.query(User).filter(User.verification_token_hash == digest).first()
     if not user:
-        raise HTTPException(400, "Invalid verification link")
+        # Check if a user with this token was already verified (token cleared after first use)
+        raise HTTPException(400, "Invalid or already used verification link. Request a new one if needed.")
     expires = user.verification_expires_at
     if expires and expires.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
-        raise HTTPException(400, "Verification link has expired")
+        raise HTTPException(400, "Verification link has expired. Please request a new verification email.")
     already_verified = user.email_verified
     user.email_verified = True
     user.verification_token_hash = None
@@ -81,10 +82,22 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     return {"message": "Email verified successfully", "email_verified": True}
 
 
+# Resend cooldown: allow at most one resend per 60 seconds.
+_RESEND_COOLDOWN_SECONDS = 60
+
 @router.post("/resend-verification", response_model=AuthResponse)
 def resend_verification(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if user.email_verified:
         return {"access_token": create_access_token(user.id), "user": user, "verification_required": False}
+    # Rate-limit: if a token was issued less than 60 seconds ago, reject the request.
+    if user.verification_expires_at:
+        issued_threshold = datetime.now(timezone.utc) + timedelta(hours=24) - timedelta(seconds=_RESEND_COOLDOWN_SECONDS)
+        expires_aware = user.verification_expires_at.replace(tzinfo=timezone.utc)
+        if expires_aware > issued_threshold:
+            raise HTTPException(
+                429,
+                f"Please wait {_RESEND_COOLDOWN_SECONDS} seconds before requesting another verification email.",
+            )
     token, token_hash = generate_verification_token()
     user.verification_token_hash = token_hash
     user.verification_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
@@ -101,23 +114,36 @@ def resend_verification(db: Session = Depends(get_db), user: User = Depends(get_
 
 # ── Password reset ────────────────────────────────────────────────────────────
 
+# Minimum interval between password-reset requests: 60 seconds.
+_RESET_REQUEST_COOLDOWN_SECONDS = 60
+
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
     Always returns the same generic message to prevent user enumeration.
     The reset link is only sent when the email actually exists.
+    Rate-limited to one request per 60 seconds per account (silently enforced).
     """
     user = db.query(User).filter(User.email == str(data.email).lower()).first()
     if user:
-        token, token_hash = generate_password_reset_token()
-        user.password_reset_token_hash = token_hash
-        user.password_reset_expires_at = (
-            datetime.now(timezone.utc)
-            + timedelta(minutes=settings.password_reset_expire_minutes)
-        )
-        db.commit()
-        reset_url = f"{settings.frontend_url}/reset-password?token={token}"
-        send_password_reset_email(user.email, user.name, reset_url)
+        # Silently skip sending if a reset was requested within the last 60 seconds.
+        can_send = True
+        if user.password_reset_expires_at:
+            remaining_lifetime = timedelta(minutes=settings.password_reset_expire_minutes) - timedelta(seconds=_RESET_REQUEST_COOLDOWN_SECONDS)
+            too_recent_threshold = datetime.now(timezone.utc) + remaining_lifetime
+            expires_aware = user.password_reset_expires_at.replace(tzinfo=timezone.utc)
+            if expires_aware > too_recent_threshold:
+                can_send = False  # Cooldown active — return generic message without sending
+        if can_send:
+            token, token_hash = generate_password_reset_token()
+            user.password_reset_token_hash = token_hash
+            user.password_reset_expires_at = (
+                datetime.now(timezone.utc)
+                + timedelta(minutes=settings.password_reset_expire_minutes)
+            )
+            db.commit()
+            reset_url = f"{settings.frontend_url}/reset-password?token={token}"
+            send_password_reset_email(user.email, user.name, reset_url)
     return {"message": "If an account with that email exists, a password reset link has been sent."}
 
 
