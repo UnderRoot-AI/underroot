@@ -15,6 +15,9 @@ export function useSoil() {
     try {
       const data = await soilApi.list();
       setTests(data);
+      // Always update currentTest to the first (latest) result so the
+      // assistant and other pages never hold a stale reference to an older test.
+      if (data.length > 0) setCurrentTest(data[0]);
       return data;
     } catch (e) {
       setError(getErrorMessage(e));
@@ -22,7 +25,7 @@ export function useSoil() {
     } finally {
       setLoading(false);
     }
-  }, [setTests]);
+  }, [setCurrentTest, setTests]);
 
   const create = async (payload: SoilTestPayload) => {
     setLoading(true);

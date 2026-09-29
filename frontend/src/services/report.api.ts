@@ -11,7 +11,13 @@ export const reportApi = {
       soil_test_id: soilTestId
     });
     return data;
-  }
+  },
+  async downloadPdf(reportId: number | string): Promise<Blob> {
+    const { data } = await api.get(`/reports/${reportId}/pdf`, {
+      responseType: "blob",
+    });
+    return data;
+  },
 };
 
 

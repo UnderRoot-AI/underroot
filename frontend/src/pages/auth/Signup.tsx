@@ -1,6 +1,6 @@
 import { useState, useRef, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Leaf, LockKeyhole, Mail, UserRound, Phone, CheckCircle, RefreshCw, Loader2, MapPin } from "lucide-react";
+import { LockKeyhole, Mail, UserRound, Phone, CheckCircle, RefreshCw, Loader2, MapPin } from "lucide-react";
 import Button from "../../components/ui/Button";
 import ErrorAlert from "../../components/common/ErrorAlert";
 import { authApi } from "../../services/auth.api";
@@ -163,7 +163,13 @@ export default function Signup() {
     return (
       <div className="auth-page">
         <div className="auth-visual">
-          <div className="auth-brand"><Leaf /> {t("brand")}</div>
+          <div className="auth-brand">
+            <img
+              src="/underroot-logo.png"
+              alt="UnderRoot"
+              style={{ width: 120, height: "auto", maxWidth: "100%", display: "block" }}
+            />
+          </div>
           <div>
             <h1>{t("verifyEmailTitle")}<br /><span>{t("verifyEmailSubtitle")}</span></h1>
             <p>{t("verifyEmailDesc")}</p>
@@ -177,7 +183,13 @@ export default function Signup() {
         </div>
         <div className="auth-form-wrap">
           <div className="auth-form" style={{ textAlign: "center" }}>
-            <div className="mobile-auth-logo"><Leaf /> {t("brand")}</div>
+            <div className="mobile-auth-logo">
+              <img
+                src="/underroot-logo.png"
+                alt="UnderRoot"
+                style={{ width: 96, height: "auto", maxWidth: "100%", display: "block" }}
+              />
+            </div>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--light)", color: "var(--green)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
               <CheckCircle size={40} />
             </div>
@@ -239,14 +251,26 @@ export default function Signup() {
   return (
     <div className="auth-page">
       <div className="auth-visual">
-        <div className="auth-brand"><Leaf /> {t("brand")}</div>
+        <div className="auth-brand">
+          <img
+            src="/underroot-logo.png"
+            alt="UnderRoot"
+            style={{ width: 120, height: "auto", maxWidth: "100%", display: "block" }}
+          />
+        </div>
         <div>
           <h1>{t("signupTitle")}<br /><span>{t("signupSubtitle")}</span></h1>
         </div>
       </div>
       <div className="auth-form-wrap">
         <form className="auth-form" onSubmit={submit} noValidate>
-          <div className="mobile-auth-logo"><Leaf /> {t("brand")}</div>
+          <div className="mobile-auth-logo">
+            <img
+              src="/underroot-logo.png"
+              alt="UnderRoot"
+              style={{ width: 96, height: "auto", maxWidth: "100%", display: "block" }}
+            />
+          </div>
           <h2>{t("signupTitle")}</h2>
           <p>{t("signupSubtitle")}</p>
           <ErrorAlert message={error} />

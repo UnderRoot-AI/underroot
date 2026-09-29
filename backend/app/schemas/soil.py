@@ -83,3 +83,4 @@ class SoilTestOut(BaseModel):
     health_status: str
     notes: str | None = None
     source: str | None = None
+    device_id: str | None = None

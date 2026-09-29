@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Bot, ClipboardList, FileText, History, Home, Leaf, Sprout, UserRound, Landmark, BarChart3 } from "lucide-react";
+import { Bot, ClipboardList, Cpu, FileText, History, Home, Leaf, Sprout, UserRound, Landmark, BarChart3 } from "lucide-react";
 import { ROUTES } from "../../constants/routes";
 import { useAuthStore } from "../../store/authStore";
 import { useT } from "../../i18n/useT";
@@ -19,12 +19,17 @@ export default function Sidebar() {
     { to: ROUTES.FERTILIZER, label: t("navFertRec"), icon: Leaf },
     { to: ROUTES.ASSISTANT, label: t("navAssistant"), icon: Bot },
     { to: ROUTES.RESOURCES, label: t("navResources"), icon: Landmark },
+    { to: ROUTES.DEVICES, label: "Devices", icon: Cpu },
   ];
 
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-mark"><Leaf size={21} /></div>
+        <img
+          src="/underroot-logo.png"
+          alt="UnderRoot"
+          style={{ height: 44, width: "auto", flexShrink: 0 }}
+        />
         <div>
           <strong>{t("brand")}</strong>
           <span>{t("tagline")}</span>

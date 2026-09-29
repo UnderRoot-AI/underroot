@@ -51,18 +51,40 @@ _rl          = _make_mod("reportlab")
 _rl_lib      = _make_mod("reportlab.lib")
 _rl_ps       = _make_mod("reportlab.lib.pagesizes",  A4=(595.27, 841.89), letter=(612, 792))
 _rl_units    = _make_mod("reportlab.lib.units",  mm=2.8346, cm=28.346, inch=72)
+class _SS(dict):
+    """Minimal StyleSheet1 stub — supports dict access and .add()."""
+    def add(self, style, alias=None):
+        key = getattr(style, "name", None) or (style.get("name") if isinstance(style, dict) else None)
+        if key:
+            self[key] = style
+
+def _fake_sss():
+    ss = _SS({"BodyText": {}, "Heading1": {}, "Heading2": {}, "Normal": {}})
+    return ss
+
+class _Noop:
+    def __init__(self, *a, **kw): pass
+    def __call__(self, *a, **kw): return self
+    def setStyle(self, *a, **kw): pass
+    def build(self, *a, **kw): pass
+    def addPageTemplates(self, *a, **kw): pass
+    def _restrictSize(self, *a, **kw): pass
+    imageWidth = 100
+    imageHeight = 100
+
 _rl_styles   = _make_mod("reportlab.lib.styles",
-    getSampleStyleSheet=lambda: {"BodyText": {}, "Heading1": {}, "Heading2": {}},
-    ParagraphStyle=lambda **kw: kw)
+    getSampleStyleSheet=_fake_sss,
+    ParagraphStyle=_Noop)
 _rl_colors   = _make_mod("reportlab.lib.colors",
     HexColor=lambda x: x,
     white="white", grey="grey", black="black")
 _rl_platypus = _make_mod("reportlab.platypus",
-    SimpleDocTemplate=object,
-    Paragraph=lambda *a, **kw: None,
-    Spacer=lambda *a, **kw: None,
-    Table=lambda *a, **kw: None,
-    TableStyle=lambda *a, **kw: None)
+    SimpleDocTemplate=_Noop, BaseDocTemplate=_Noop,
+    Frame=_Noop, PageTemplate=_Noop,
+    Paragraph=_Noop, Spacer=_Noop,
+    Table=_Noop, TableStyle=_Noop,
+    KeepTogether=_Noop, HRFlowable=_Noop,
+    Image=_Noop)
 _rl_gfx      = _make_mod("reportlab.graphics")
 _rl_shapes   = _make_mod("reportlab.graphics.shapes",
     Drawing=object, Rect=lambda *a, **kw: None, String=lambda *a, **kw: None)
@@ -680,3 +702,252 @@ def test_service_does_not_invent_nitrogen_when_missing():
     assert "nitrogen" in reply.lower()
     # Should not invent a specific kg/ha value that doesn't exist
     assert "150" not in reply or "don't have" in reply.lower() or "within optimal" in reply.lower()
+
+
+# ── Regression: stale soil test context isolation ────────────────────────────
+
+_SOIL_TEST3_PARAMS = {
+    "ph": 6.8,
+    "nitrogen": 180.0,
+    "phosphorus": 45.0,
+    "potassium": 220.0,
+    "ec": 0.65,
+    "moisture": 24.0,
+    "temperature": 28.0,
+    "organic_carbon": 0.75,
+}
+
+_SOIL_TEST6_PARAMS = {
+    "ph": 6.6343,
+    "nitrogen": 186.8415,
+    "phosphorus": 33.0209,
+    "potassium": 215.9982,
+    "ec": 0.4282,
+    "moisture": 39.9069,
+    "temperature": 28.7198,
+    "organic_carbon": 0.7073,
+}
+
+
+def test_latest_test_uses_newest_ph_not_older():
+    """
+    When Test #3 (ph=6.8) and Test #6 (ph=6.6343) both exist for the same
+    user, asking about the latest soil test MUST return ph=6.6343 and NEVER 6.8.
+    """
+    from app.services.assistant_service import answer as svc_answer
+
+    # Simulate Test #3 soil dict passed to answer()
+    reply_t3, _ = svc_answer(
+        "What is the health of my latest soil test?",
+        soil=_SOIL_TEST3_PARAMS,
+        health_score=100.0,
+        health_status="Excellent",
+        history=[],
+    )
+    assert "6.8" in reply_t3, "Test 3 reply should reference ph=6.8"
+    assert "6.6343" not in reply_t3, "Test 3 reply must NOT reference Test 6 ph"
+
+    # Simulate Test #6 soil dict (the actual latest) passed to answer()
+    reply_t6, _ = svc_answer(
+        "What is the health of my latest soil test?",
+        soil=_SOIL_TEST6_PARAMS,
+        health_score=100.0,
+        health_status="Excellent",
+        history=[],
+    )
+    assert "6.6343" in reply_t6, "Test 6 reply should reference ph=6.6343"
+    assert "6.8" not in reply_t6, "Test 6 reply must NOT reference stale ph=6.8"
+
+
+def test_api_latest_test_uses_newest_when_no_id_given():
+    """
+    When soil_test_id is omitted the backend must fetch the newest test by
+    created_at DESC.  Create two tests for the same user: older with ph=6.8,
+    newer with ph=6.6343 — the answer must contain 6.6343.
+    """
+    token = _register_and_verify({
+        "name": "Latest Test User",
+        "email": "latesttest@regression.com",
+        "password": "Pass1234!",
+        "state": "Gujarat",
+        "district": "Ahmedabad",
+        "mobile": "",
+    })
+
+    # Create older test (ph=6.8 — resembles Test #3)
+    _create_soil_test(token, _SOIL_TEST3_PARAMS)
+    # Create newer test (ph=6.6343 — resembles Test #6)
+    _create_soil_test(token, _SOIL_TEST6_PARAMS)
+
+    # Ask without soil_test_id — backend must pick the newest test
+    r = client.post(
+        "/api/assistant/chat",
+        json={"message": "What is the health of my latest soil test?"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    answer = r.json()["answer"]
+
+    # The response MUST reference the newer pH value
+    assert "6.6343" in answer, (
+        f"Expected ph=6.6343 (latest test) in answer but got: {answer[:300]}"
+    )
+    assert "6.8" not in answer, (
+        f"Stale ph=6.8 (older test) must not appear in latest-test answer: {answer[:300]}"
+    )
+
+
+def test_conversation_history_does_not_leak_older_test_values():
+    """
+    Even if the stored conversation history contains responses that mention
+    ph=6.8 (from an older session), the NEW answer for the latest test must
+    use ph=6.6343 from the actual latest soil dict, not the history text.
+    """
+    from app.services.assistant_service import answer as svc_answer
+
+    # Stale history that mentions ph=6.8
+    stale_history = [
+        {"role": "user", "content": "What is the health of my latest soil test?"},
+        {
+            "role": "assistant",
+            "content": (
+                "Based on your latest UnderRoot soil test:\n"
+                "  Soil Health Score: 100.0/100 — Excellent\n"
+                "  All measured parameters are within the optimal range.\n"
+                "✅ pH (6.8) is within the optimal range for most crops."
+            ),
+        },
+    ]
+
+    # Now answer() is called with the CORRECT latest soil (ph=6.6343)
+    reply, _ = svc_answer(
+        "What is the health of my latest soil test?",
+        soil=_SOIL_TEST6_PARAMS,
+        health_score=100.0,
+        health_status="Excellent",
+        history=stale_history,
+    )
+
+    # The response MUST use the soil dict values, not the history text
+    assert "6.6343" in reply, (
+        f"Reply must use ph=6.6343 from current soil dict, not history: {reply[:300]}"
+    )
+    assert "6.8" not in reply, (
+        f"Stale ph=6.8 from history must not appear in new reply: {reply[:300]}"
+    )
+
+
+def test_nutrients_low_all_optimal_does_not_claim_deficiency():
+    """
+    When ALL parameters of the latest test are within the analyzer's optimal
+    range (Test #6: all Optimal), the assistant must NOT claim any nutrient is
+    deficient or low.
+
+    Specifically for Test #6:
+      N=186.8415 (optimal: 150-280)  → Optimal
+      P=33.0209  (optimal: 15-45)   → Optimal
+      K=215.9982 (optimal: 200-400) → Optimal
+
+    The answer must state that no nutrient is low, not invent deficiencies.
+    """
+    from app.services.assistant_service import answer as svc_answer
+
+    reply, _ = svc_answer(
+        "What nutrients are low in my latest test?",
+        soil=_SOIL_TEST6_PARAMS,
+        health_score=100.0,
+        health_status="Excellent",
+        history=[],
+    )
+
+    # Must NOT claim N, P, or K is low
+    lower = reply.lower()
+    assert "nitrogen" not in lower or "optimal" in lower or "not classified" in lower or "no measured" in lower or "within" in lower, (
+        f"Must not claim nitrogen is low when it is Optimal: {reply[:300]}"
+    )
+
+    # Must explicitly indicate no deficiency exists — various acceptable phrasings
+    no_deficiency_phrases = [
+        "no measured parameter",
+        "all within optimal",
+        "not classified as low",
+        "all currently within",
+        "within optimal ranges",
+        "no nutrient",
+    ]
+    assert any(p in lower for p in no_deficiency_phrases), (
+        f"Expected 'no deficiency' phrasing in reply but got: {reply[:300]}"
+    )
+
+
+def test_nutrients_low_with_deficient_soil_names_deficiencies():
+    """
+    When the soil has genuinely low nutrients (below analyzer optimal range),
+    the assistant must name the specific deficient ones from analysis.deficiencies.
+    """
+    from app.services.assistant_service import answer as svc_answer
+
+    low_soil = {
+        "ph": 6.0,
+        "nitrogen": 100.0,    # low (< 150)
+        "phosphorus": 10.0,   # low (< 15)
+        "potassium": 150.0,   # low (< 200)
+        "ec": 0.5,
+        "moisture": 35.0,
+        "temperature": 25.0,
+        "organic_carbon": 0.3,  # low (< 0.5)
+    }
+
+    reply, _ = svc_answer(
+        "What nutrients are low in my latest test?",
+        soil=low_soil,
+        health_score=40.0,
+        health_status="Needs Attention",
+        history=[],
+    )
+
+    lower = reply.lower()
+    # At least one deficient nutrient should be named
+    assert any(n in lower for n in ["nitrogen", "phosphorus", "potassium", "organic"]), (
+        f"Expected deficient nutrients to be named: {reply[:300]}"
+    )
+
+
+def test_service_ph_uses_analyzer_status_not_hardcoded_threshold():
+    """
+    The pH status must come from the analyzer (PARAM_RULES good=(6.0,7.5)),
+    not any hardcoded threshold in the assistant service.
+
+    pH=6.0 is exactly on the boundary — analyzer classifies as Optimal.
+    The assistant must not say it is 'acidic'.
+    """
+    from app.services.assistant_service import answer as svc_answer
+
+    boundary_soil = {
+        "ph": 6.0,
+        "nitrogen": 200.0,
+        "phosphorus": 25.0,
+        "potassium": 250.0,
+        "ec": 0.5,
+        "moisture": 40.0,
+        "temperature": 25.0,
+        "organic_carbon": 0.7,
+    }
+
+    reply, _ = svc_answer(
+        "What is my pH?",
+        soil=boundary_soil,
+        health_score=90.0,
+        health_status="Excellent",
+    )
+
+    # pH 6.0 is in the optimal range [6.0, 7.5] per PARAM_RULES
+    # So the reply must NOT say it is acidic/low
+    lower = reply.lower()
+    # "within the optimal range" phrasing
+    assert "optimal" in lower or "6.0" in reply, (
+        f"pH=6.0 should be Optimal per analyzer: {reply[:200]}"
+    )
+    assert "acidic" not in lower or "not acidic" in lower, (
+        f"pH=6.0 is boundary-Optimal, must not be called acidic: {reply[:200]}"
+    )

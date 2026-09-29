@@ -26,6 +26,7 @@ import AddScheme from "../pages/developer/AddScheme";
 import DeveloperProtectedRoute from "./DeveloperProtectedRoute";
 import ForgotPassword from "../pages/auth/ForgotPassword";
 import ResetPassword from "../pages/auth/ResetPassword";
+import Devices from "../pages/devices/Devices";
 
 export default function AppRoutes(){
   return <Routes>
@@ -54,6 +55,7 @@ export default function AppRoutes(){
         <Route path={ROUTES.ASSISTANT} element={<Assistant/>}/>
         <Route path={ROUTES.PROFILE} element={<Profile/>}/>
         <Route path={ROUTES.RESOURCES} element={<GovernmentResources/>}/>
+        <Route path={ROUTES.DEVICES} element={<Devices/>}/>
       </Route>
     </Route>
     <Route element={<DeveloperProtectedRoute/>}>

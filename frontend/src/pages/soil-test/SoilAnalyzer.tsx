@@ -53,15 +53,8 @@ export default function SoilAnalyzer() {
     setPdfLoading(true);
     setPdfError("");
     try {
-      // Generate report first to get a report ID
       const report = await reportApi.generate(testId);
-      // Trigger PDF download
-      const token = localStorage.getItem("access_token") || "";
-      const resp = await fetch(`http://127.0.0.1:8001/api/reports/${report.id}/pdf`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!resp.ok) throw new Error("PDF generation failed");
-      const blob = await resp.blob();
+      const blob = await reportApi.downloadPdf(report.id);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -69,7 +62,12 @@ export default function SoilAnalyzer() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      setPdfError("Could not download PDF. Try again.");
+      const msg =
+        e.response?.data?.detail ||
+        e.response?.statusText ||
+        e.message ||
+        "Could not download PDF. Try again.";
+      setPdfError(msg);
     } finally {
       setPdfLoading(false);
     }

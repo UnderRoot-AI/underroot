@@ -18,7 +18,7 @@ def params_of(s: SoilTest):
     return {"ph":s.ph,"nitrogen":s.nitrogen,"phosphorus":s.phosphorus,"potassium":s.potassium,"ec":s.ec,"moisture":s.moisture,"temperature":s.temperature,"organic_carbon":s.organic_carbon}
 
 def serialize(s: SoilTest):
-    return {"id":s.id,"field_id":s.field_id,"location":s.location,"latitude":s.latitude,"longitude":s.longitude,"created_at":s.created_at,"parameters":params_of(s),"health_score":s.health_score,"health_status":s.health_status,"notes":s.notes}
+    return {"id":s.id,"field_id":s.field_id,"location":s.location,"latitude":s.latitude,"longitude":s.longitude,"created_at":s.created_at,"parameters":params_of(s),"health_score":s.health_score,"health_status":s.health_status,"notes":s.notes,"source":s.source,"device_id":s.device_id}
 
 @router.post("/tests", response_model=SoilTestOut)
 def create_test(data: SoilTestCreate, db: Session = Depends(get_db), report_db: Session = Depends(get_report_db), user: User = Depends(get_current_user)):

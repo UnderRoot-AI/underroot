@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Bot, Send, Sparkles, Leaf } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
@@ -57,22 +57,31 @@ export default function Assistant() {
   const { messages, ask, loading } = useAssistant();
   const [message, setMessage] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
-  const { currentTest } = useSoil();
+  const { currentTest, load } = useSoil();
   const t = useT();
   const { language } = useLanguageStore();
+
+  // Refresh the latest soil test on mount so the context banner and the
+  // soil_test_id sent to the backend always reflect the actual newest test.
+  useEffect(() => {
+    load();
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!message.trim()) return;
     const x = message;
     setMessage("");
-    await ask(x, currentTest?.id);
+    // Never pass a soil_test_id — let the backend always pick the latest by
+    // created_at so a stale store value cannot cause data mixing.
+    await ask(x);
     bottom.current?.scrollIntoView({ behavior: "smooth" });
   }
 
   async function sendSuggestion(suggestion: string) {
     setMessage("");
-    await ask(suggestion, currentTest?.id);
+    // Same: do not pass an explicit ID
+    await ask(suggestion);
     bottom.current?.scrollIntoView({ behavior: "smooth" });
   }
 

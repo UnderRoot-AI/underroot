@@ -17,6 +17,7 @@ export const ROUTES = {
   ASSISTANT: "/assistant",
   PROFILE: "/profile",
   RESOURCES: "/government-resources",
+  DEVICES: "/devices",
   DEVELOPER_LOGIN: "/developer/login",
   DEVELOPER: "/developer",
   DEVELOPER_ADD_SCHEME: "/developer/scheme/add",

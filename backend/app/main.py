@@ -5,16 +5,18 @@ from pathlib import Path
 from app.core.config import settings
 from app.database.connection import Base, engine
 from app.database.report_connection import ReportBase, report_engine
-from app.database.migrations import ensure_user_columns, ensure_report_columns, ensure_soil_test_columns
+from app.database.migrations import ensure_user_columns, ensure_report_columns, ensure_soil_test_columns, ensure_device_tables
 from app import models  # register SQLAlchemy models
 from app.models.soil_report_record import SoilReportRecord  # register report-store model
 from app.database.connection import SessionLocal
 from app.services.scheme_seed import seed_schemes
 from app.api.routes import auth, reports, ocr, soil, recommendations, history, assistant, report_store, hardware, resources, developer
+from app.api.routes import devices as devices_router
 
 Base.metadata.create_all(bind=engine)
 ensure_user_columns()
 ensure_soil_test_columns()
+ensure_device_tables()
 ReportBase.metadata.create_all(bind=report_engine)
 ensure_report_columns(report_engine)
 with SessionLocal() as _seed_db:
@@ -28,7 +30,7 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-for router in (auth.router, reports.router, ocr.router, soil.router, recommendations.router, history.router, assistant.router, report_store.router, hardware.router, resources.router, developer.router):
+for router in (auth.router, reports.router, ocr.router, soil.router, recommendations.router, history.router, assistant.router, report_store.router, hardware.router, resources.router, developer.router, devices_router.router):
     app.include_router(router, prefix="/api")
 
 @app.get("/")

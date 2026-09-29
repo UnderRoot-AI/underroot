@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Leaf, LockKeyhole, Mail } from "lucide-react";
+import { LockKeyhole, Mail, RefreshCw } from "lucide-react";
 import Button from "../../components/ui/Button";
 import ErrorAlert from "../../components/common/ErrorAlert";
 import { authApi } from "../../services/auth.api";
@@ -20,10 +20,16 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // When true: the error is specifically because of an unverified email
+  const [showResend, setShowResend] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    setShowResend(false);
+    setResendDone(false);
     setLoading(true);
     try {
       // 1. Try admin/developer credentials first
@@ -52,6 +58,7 @@ export default function Login() {
       const detail: string = err?.response?.data?.detail ?? "";
       if (detail.toLowerCase().includes("verify your email")) {
         setError("Please verify your email address before signing in. Check your inbox for the verification link.");
+        setShowResend(true);  // show resend button so the user can get a new link
       } else {
         setError(getErrorMessage(err, "Invalid email or password"));
       }
@@ -60,10 +67,30 @@ export default function Login() {
     }
   }
 
+  async function handleResend() {
+    if (!form.email || resending) return;
+    setResending(true);
+    setResendDone(false);
+    try {
+      await authApi.resendVerificationByEmail(form.email);
+      setResendDone(true);
+    } catch {
+      // Endpoint always returns 200; silently ignore network errors
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <div className="auth-page">
       <div className="auth-visual">
-        <div className="auth-brand"><Leaf /> {t("brand")}</div>
+        <div className="auth-brand">
+          <img
+            src="/underroot-logo.png"
+            alt="UnderRoot"
+            style={{ width: 120, height: "auto", maxWidth: "100%", display: "block" }}
+          />
+        </div>
         <div>
           <h1>{t("loginTitle")}<br /><span>{t("loginSubtitle")}</span></h1>
         </div>
@@ -76,10 +103,49 @@ export default function Login() {
       </div>
       <div className="auth-form-wrap">
         <form className="auth-form" onSubmit={submit}>
-          <div className="mobile-auth-logo"><Leaf /> {t("brand")}</div>
+          <div className="mobile-auth-logo">
+            <img
+              src="/underroot-logo.png"
+              alt="UnderRoot"
+              style={{ width: 96, height: "auto", maxWidth: "100%", display: "block" }}
+            />
+          </div>
           <h2>{t("loginTitle")}</h2>
           <p>{t("loginSubtitle")}</p>
           <ErrorAlert message={error} />
+
+          {/* Resend verification — shown only when blocked due to unverified email */}
+          {showResend && !resendDone && (
+            <div style={{
+              background: "var(--surface, #f7f8fa)",
+              border: "1px solid var(--border, #e5e7eb)",
+              borderRadius: 10,
+              padding: "12px 16px",
+              marginBottom: 14,
+              fontSize: 13,
+            }}>
+              <p style={{ margin: "0 0 10px", color: "var(--text, #1f2328)" }}>
+                Need a new verification link?
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleResend}
+                disabled={resending || !form.email}
+                style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <RefreshCw size={13} />
+                {resending ? "Sending…" : "Resend verification email"}
+              </button>
+            </div>
+          )}
+
+          {resendDone && (
+            <div className="alert alert-success" style={{ marginBottom: 14, fontSize: 13 }}>
+              ✓ Verification email sent. Check your inbox and spam folder.
+            </div>
+          )}
+
           <label>
             {t("email")}
             <input

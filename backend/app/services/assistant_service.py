@@ -196,6 +196,8 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
                      "स्वास्थ्य स्कोर", "આરોગ્ય", "स्कोर", "गुण", "आरोग्य"],
     "report":       ["report", "explain", "analysis", "result", "summary", "detail", "रिपोर्ट", "विश्लेषण", "रिपोर्ट",
                      "detail", "explain report", "soil report", "अहवाल", "विश्लेषण", "અહેવાલ", "विस्तार"],
+    "low_nutrients": ["low", "deficien", "nutrient", "lacking", "shortage", "what nutrient",
+                      "कम है", "कमी", "ओछ", "कमतर", "न्यून"],
     "ph":           ["ph", "acid", "alkaline", "acidic", "sour", "sweet", "pH", "अम्ल", "खट्टा", "क्षारीय",
                      "खाटु", "ખાટ", "आंबट", "क्षार", "अम्लता"],
     "nitrogen":     ["nitrogen", "urea", "yellow leaves", "yellowing", "नाइट्रोजन", "यूरिया", "पीला", "नाइट्रो",
@@ -247,38 +249,46 @@ def _format_deficiencies(deficiencies: list[str], excesses: list[str], lang: dic
     return lines
 
 
-def _soil_status_lines(soil: dict, lang: dict) -> list[str]:
-    """Generate plain-language status lines for each parameter."""
+def _soil_status_lines(soil: dict, analysis: dict | None, lang: dict) -> list[str]:
+    """
+    Generate plain-language status lines for each parameter.
+
+    Uses the deterministic analyzer output (analysis) as the source of truth for
+    parameter status.  Falls back to reading the raw soil dict only for the
+    displayed value; the status classification always comes from the analyzer.
+    """
+    if not analysis:
+        return []
+
     lines = []
-    ph = soil.get("ph")
-    if ph is not None:
-        ph_f = float(ph)
-        if 6.0 <= ph_f <= 7.5:
-            lines.append(f"✅ {lang['ph_good'].format(v=ph)}")
-        elif ph_f < 6.0:
-            lines.append(f"⚠️ {lang['ph_low'].format(v=ph)}")
+    param_map = {r["key"]: r for r in analysis.get("parameter_analysis", [])}
+
+    ph_r = param_map.get("ph")
+    if ph_r and ph_r["value"] is not None:
+        v = ph_r["value"]
+        if ph_r["status"] == "Optimal":
+            lines.append(f"✅ {lang['ph_good'].format(v=v)}")
+        elif ph_r["status"] in ("Low", "Critical"):
+            lines.append(f"⚠️ {lang['ph_low'].format(v=v)}")
         else:
-            lines.append(f"⚠️ {lang['ph_high'].format(v=ph)}")
+            lines.append(f"⚠️ {lang['ph_high'].format(v=v)}")
 
-    n = soil.get("nitrogen")
-    if n is not None and float(n) < 150:
-        lines.append(f"⚠️ {lang['n_low'].format(v=n)}")
+    for key, low_key, msg_key in (
+        ("nitrogen", "n_low", "n_low"),
+        ("phosphorus", "p_low", "p_low"),
+        ("potassium", "k_low", "k_low"),
+    ):
+        r = param_map.get(key)
+        if r and r["value"] is not None and r["status"] in ("Low", "Critical"):
+            lines.append(f"⚠️ {lang[msg_key].format(v=r['value'])}")
 
-    p = soil.get("phosphorus")
-    if p is not None and float(p) < 15:
-        lines.append(f"⚠️ {lang['p_low'].format(v=p)}")
+    ec_r = param_map.get("ec")
+    if ec_r and ec_r["value"] is not None and ec_r["status"] in ("High", "Critical"):
+        lines.append(f"⚠️ {lang['ec_high'].format(v=ec_r['value'])}")
 
-    k = soil.get("potassium")
-    if k is not None and float(k) < 200:
-        lines.append(f"⚠️ {lang['k_low'].format(v=k)}")
-
-    ec = soil.get("ec")
-    if ec is not None and float(ec) > 4.0:
-        lines.append(f"⚠️ {lang['ec_high'].format(v=ec)}")
-
-    oc = soil.get("organic_carbon")
-    if oc is not None and float(oc) < 0.5:
-        lines.append(f"💡 {lang['oc_low'].format(v=oc)}")
+    oc_r = param_map.get("organic_carbon")
+    if oc_r and oc_r["value"] is not None and oc_r["status"] in ("Low", "Critical"):
+        lines.append(f"💡 {lang['oc_low'].format(v=oc_r['value'])}")
 
     return lines
 
@@ -307,8 +317,8 @@ def _build_full_context_block(
         )
         parts.extend(f"  {l}" for l in def_lines)
 
-    # Individual parameter statuses
-    status_lines = _soil_status_lines(soil, lang)
+    # Individual parameter statuses — use analyzer output, not independent thresholds
+    status_lines = _soil_status_lines(soil, analysis, lang)
     parts.extend(status_lines)
 
     return "\n".join(parts)
@@ -390,18 +400,27 @@ def answer(
     if intents & {"health", "report"} or (not intents):
         lines.append(_build_full_context_block(soil, health_score, health_status, analysis, lang))
 
-    # Specific parameter questions
+    # ── Helper: get a single parameter's analysis result ─────────────────────
+    def _param(key: str) -> dict | None:
+        if not analysis:
+            return None
+        return {r["key"]: r for r in analysis.get("parameter_analysis", [])}.get(key)
+
+    prefix = f"{lang['data_prefix']}: "
+
+    # Specific parameter questions — status always from analyzer, value from analyzer
     if "ph" in intents:
-        ph = soil.get("ph")
-        if ph is not None:
-            ph_f = float(ph)
-            prefix = f"{lang['data_prefix']}: "
-            if 6.0 <= ph_f <= 7.5:
-                lines.append(prefix + lang["ph_good"].format(v=ph))
-            elif ph_f < 6.0:
-                lines.append(prefix + lang["ph_low"].format(v=ph))
+        r = _param("ph")
+        if r and r["value"] is not None:
+            v = r["value"]
+            if r["status"] == "Optimal":
+                lines.append(prefix + lang["ph_good"].format(v=v))
+            elif r["status"] in ("Low", "Critical"):
+                lines.append(prefix + lang["ph_low"].format(v=v))
             else:
-                lines.append(prefix + lang["ph_high"].format(v=ph))
+                lines.append(prefix + lang["ph_high"].format(v=v))
+        elif not r:
+            lines.append("I don't have a pH measurement for your soil.")
         # Supplement with RAG knowledge on pH
         if retrieved:
             for c in retrieved[:1]:
@@ -409,68 +428,88 @@ def answer(
                     lines.append(f"\n{lang['general_prefix']}: {c.text[:300]}")
 
     if "nitrogen" in intents:
-        n = soil.get("nitrogen")
-        prefix = f"{lang['data_prefix']}: "
-        if n is not None:
-            if float(n) < 150:
-                lines.append(prefix + lang["n_low"].format(v=n))
+        r = _param("nitrogen")
+        if r and r["value"] is not None:
+            v = r["value"]
+            if r["status"] in ("Low", "Critical"):
+                lines.append(prefix + lang["n_low"].format(v=v))
             else:
-                lines.append(prefix + f"{lang['n_label']}: {n} {lang['unit_n']} — within optimal range.")
-        else:
-            lines.append(f"I don't have a nitrogen measurement for your soil.")
+                lines.append(prefix + f"{lang['n_label']}: {v} {lang['unit_n']} — within optimal range.")
+        elif not r:
+            lines.append("I don't have a nitrogen measurement for your soil.")
 
     if "phosphorus" in intents:
-        p = soil.get("phosphorus")
-        prefix = f"{lang['data_prefix']}: "
-        if p is not None:
-            if float(p) < 15:
-                lines.append(prefix + lang["p_low"].format(v=p))
+        r = _param("phosphorus")
+        if r and r["value"] is not None:
+            v = r["value"]
+            if r["status"] in ("Low", "Critical"):
+                lines.append(prefix + lang["p_low"].format(v=v))
             else:
-                lines.append(prefix + f"{lang['p_label']}: {p} {lang['unit_p']} — within optimal range.")
-        else:
-            lines.append(f"I don't have a phosphorus measurement for your soil.")
+                lines.append(prefix + f"{lang['p_label']}: {v} {lang['unit_p']} — within optimal range.")
+        elif not r:
+            lines.append("I don't have a phosphorus measurement for your soil.")
 
     if "potassium" in intents:
-        k = soil.get("potassium")
-        prefix = f"{lang['data_prefix']}: "
-        if k is not None:
-            if float(k) < 200:
-                lines.append(prefix + lang["k_low"].format(v=k))
+        r = _param("potassium")
+        if r and r["value"] is not None:
+            v = r["value"]
+            if r["status"] in ("Low", "Critical"):
+                lines.append(prefix + lang["k_low"].format(v=v))
             else:
-                lines.append(prefix + f"{lang['k_label']}: {k} {lang['unit_k']} — within optimal range.")
-        else:
-            lines.append(f"I don't have a potassium measurement for your soil.")
+                lines.append(prefix + f"{lang['k_label']}: {v} {lang['unit_k']} — within optimal range.")
+        elif not r:
+            lines.append("I don't have a potassium measurement for your soil.")
 
     if "organic" in intents:
-        oc = soil.get("organic_carbon")
-        prefix = f"{lang['data_prefix']}: "
-        if oc is not None:
-            if float(oc) < 0.5:
-                lines.append(prefix + lang["oc_low"].format(v=oc))
+        r = _param("organic_carbon")
+        if r and r["value"] is not None:
+            v = r["value"]
+            if r["status"] in ("Low", "Critical"):
+                lines.append(prefix + lang["oc_low"].format(v=v))
             else:
-                lines.append(prefix + f"{lang['oc_label']}: {oc} {lang['unit_oc']} — within optimal range.")
+                lines.append(prefix + f"{lang['oc_label']}: {v} {lang['unit_oc']} — within optimal range.")
 
     if "salinity" in intents or "moisture" in intents:
-        ec = soil.get("ec")
-        moisture = soil.get("moisture")
-        prefix = f"{lang['data_prefix']}: "
-        if ec is not None and float(ec) > 4.0:
-            lines.append(prefix + lang["ec_high"].format(v=ec))
-        if moisture is not None:
-            lines.append(prefix + f"{lang['moisture_label']}: {moisture} {lang['unit_moisture']}")
+        ec_r = _param("ec")
+        moist_r = _param("moisture")
+        if ec_r and ec_r["value"] is not None:
+            if ec_r["status"] in ("High", "Critical"):
+                lines.append(prefix + lang["ec_high"].format(v=ec_r["value"]))
+            else:
+                lines.append(prefix + f"{lang['ec_label']}: {ec_r['value']} {lang['unit_ec']} — within optimal range.")
+        if moist_r and moist_r["value"] is not None:
+            lines.append(prefix + f"{lang['moisture_label']}: {moist_r['value']} {lang['unit_moisture']}")
+
+    # "What nutrients are low?" — always answer from the deterministic analyzer
+    if "low_nutrients" in intents:
+        deficiencies = analysis.get("deficiencies", []) if analysis else []
+        excesses = analysis.get("excesses", []) if analysis else []
+        if deficiencies:
+            lines.append(
+                f"{prefix}Based on the soil analyzer, the following are below the optimal range: "
+                f"{', '.join(deficiencies)}."
+            )
+        else:
+            # Explicitly state no deficiencies — do not invent them
+            lines.append(
+                f"{prefix}Based on your latest soil test, no measured parameter is currently "
+                f"classified as Low or Critical by the analyzer. "
+                f"Nitrogen, Phosphorus, and Potassium are all within optimal ranges."
+            )
+        if excesses:
+            lines.append(
+                f"Parameters above optimal range: {', '.join(excesses)}."
+            )
 
     # Fertilizer question — use deterministic recommendation engine output
     if "fertilizer" in intents:
-        prefix = f"{lang['data_prefix']}: "
         if fert_recs:
-            fert_summary = fert_recs[0]
             reason = fert_recs[0].get("reason", "")
             lines.append(f"{prefix}\n{reason}")
         lines.append(f"\n{lang['fert_refer']}")
 
     # Crop question — use deterministic recommendation engine output
     if "crop" in intents:
-        prefix = f"{lang['data_prefix']}: "
         if crop_recs:
             top_crop = crop_recs[0]
             lines.append(
@@ -500,7 +539,8 @@ def answer(
     # For general questions, prefer RAG. For specific parameter questions, limit to 1 snippet.
     is_general = "general" in intents or not (intents & {
         "health", "report", "ph", "nitrogen", "phosphorus", "potassium",
-        "organic", "salinity", "moisture", "fertilizer", "crop", "comparison"
+        "organic", "salinity", "moisture", "fertilizer", "crop", "comparison",
+        "low_nutrients",
     })
     if retrieved and is_general:
         kb_snippet = "\n".join(f"• {c.text[:250]}" for c in retrieved[:2])

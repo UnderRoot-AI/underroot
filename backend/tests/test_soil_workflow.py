@@ -42,18 +42,39 @@ _rl          = _make_mod("reportlab")
 _rl_lib      = _make_mod("reportlab.lib")
 _rl_ps       = _make_mod("reportlab.lib.pagesizes",  A4=(595.27, 841.89), letter=(612, 792))
 _rl_units    = _make_mod("reportlab.lib.units",  mm=2.8346, cm=28.346, inch=72)
+class _SS(dict):
+    """Minimal StyleSheet1 stub — supports dict access and .add()."""
+    def add(self, style, alias=None):
+        key = getattr(style, "name", None) or (style.get("name") if isinstance(style, dict) else None)
+        if key:
+            self[key] = style
+
+def _fake_sss():
+    return _SS({"BodyText": {}, "Heading1": {}, "Heading2": {}, "Normal": {}})
+
+class _Noop:
+    def __init__(self, *a, **kw): pass
+    def __call__(self, *a, **kw): return self
+    def setStyle(self, *a, **kw): pass
+    def build(self, *a, **kw): pass
+    def addPageTemplates(self, *a, **kw): pass
+    def _restrictSize(self, *a, **kw): pass
+    imageWidth = 100
+    imageHeight = 100
+
 _rl_styles   = _make_mod("reportlab.lib.styles",
-    getSampleStyleSheet=lambda: {"BodyText": {}, "Heading1": {}, "Heading2": {}},
-    ParagraphStyle=lambda **kw: kw)
+    getSampleStyleSheet=_fake_sss,
+    ParagraphStyle=_Noop)
 _rl_colors   = _make_mod("reportlab.lib.colors",
     HexColor=lambda x: x,
     white="white", grey="grey", black="black")
 _rl_platypus = _make_mod("reportlab.platypus",
-    SimpleDocTemplate=object,
-    Paragraph=lambda *a, **kw: None,
-    Spacer=lambda *a, **kw: None,
-    Table=lambda *a, **kw: None,
-    TableStyle=lambda *a, **kw: None)
+    SimpleDocTemplate=_Noop, BaseDocTemplate=_Noop,
+    Frame=_Noop, PageTemplate=_Noop,
+    Paragraph=_Noop, Spacer=_Noop,
+    Table=_Noop, TableStyle=_Noop,
+    KeepTogether=_Noop, HRFlowable=_Noop,
+    Image=_Noop)
 _rl_gfx      = _make_mod("reportlab.graphics")
 _rl_shapes   = _make_mod("reportlab.graphics.shapes",
     Drawing=object, Rect=lambda *a, **kw: None, String=lambda *a, **kw: None)

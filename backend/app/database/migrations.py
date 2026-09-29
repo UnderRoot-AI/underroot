@@ -2,6 +2,18 @@ from sqlalchemy import inspect, text
 from app.database.connection import engine
 
 # Lightweight compatibility migration for the SQLite development database.
+def ensure_device_tables():
+    """Create devices and hardware_readings tables if they don't exist yet.
+
+    SQLAlchemy's create_all handles new tables; this is kept for explicitness
+    and future column additions.
+    """
+    from app.database.connection import Base  # noqa
+    import app.models.device  # noqa — ensure model is registered
+    import app.models.hardware_reading  # noqa
+    Base.metadata.create_all(bind=engine)
+
+
 def ensure_soil_test_columns():
     """Add hardware provenance columns to soil_tests if they do not exist."""
     if not engine.url.get_backend_name().startswith("sqlite"):

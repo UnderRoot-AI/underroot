@@ -6,6 +6,7 @@ export const authApi = {
   async me() { const { data } = await api.get<User>("/auth/me"); return data; },
   async verifyEmail(token: string) { const { data } = await api.get("/auth/verify-email", { params: { token } }); return data; },
   async resendVerification() { const { data } = await api.post<AuthResponse>("/auth/resend-verification"); return data; },
+  async resendVerificationByEmail(email: string) { const { data } = await api.post<{ message: string }>("/auth/resend-verification-unauthenticated", { email }); return data; },
   async requestPhoneOtp(phone:string) { const { data } = await api.post("/auth/request-phone-otp", {phone}); return data as {message:string;phone_verified:boolean;development_otp?:string}; },
   async verifyPhoneOtp(otp:string) { const { data } = await api.post("/auth/verify-phone-otp", {otp}); return data as {message:string;phone_verified:boolean}; },
   async forgotPassword(email:string) { const { data } = await api.post<{message:string}>("/auth/forgot-password", {email}); return data; },

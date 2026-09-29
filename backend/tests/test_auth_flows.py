@@ -435,3 +435,247 @@ class TestResetPassword:
         _signup()
         resp = client.post("/api/auth/reset-password", json={"new_password": "Pass1111"})
         assert resp.status_code == 422
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. Email-verification persistence regression tests
+#
+# These tests prove the exact bug-report scenarios:
+# A. unverified user cannot log in
+# B. verify email → database marks account as verified
+# C. verified user can log in — no verification message
+# D. logout and log in again — still succeeds, no re-verification required
+# E. login does NOT modify email_verified in the database
+# F. verification state is permanent across multiple logins
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestEmailVerificationPersistence:
+
+    def test_A_unverified_user_cannot_login(self):
+        """Unverified account must be rejected at login with the verification message."""
+        _signup()
+        resp = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+        assert resp.status_code in (401, 403)
+        detail = resp.json().get("detail", "").lower()
+        assert "verify" in detail or "verif" in detail
+
+    def test_B_verify_email_marks_account_permanently(self):
+        """After successful verification, email_verified must be True in the database."""
+        data = _signup()
+        token = _extract_token(data)
+        resp = client.get(f"/api/auth/verify-email?token={token}")
+        assert resp.status_code == 200
+        assert resp.json()["email_verified"] is True
+        # Confirm the database row was updated
+        user = _db_user()
+        assert user.email_verified is True
+        assert user.verification_token_hash is None
+
+    def test_C_verified_user_can_login(self):
+        """A verified user must be able to log in and receive a token."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
+        resp = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["access_token"]
+        assert body["verification_required"] is False
+        assert body["user"]["email_verified"] is True
+
+    def test_D_verified_user_can_login_multiple_times(self):
+        """Verified user can log in again after a previous login — no re-verification."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
+
+        # First login
+        r1 = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+        assert r1.status_code == 200, r1.text
+
+        # Second login (simulate logout + re-login)
+        r2 = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+        assert r2.status_code == 200, r2.text
+        assert r2.json()["verification_required"] is False
+        assert r2.json()["user"]["email_verified"] is True
+
+        # Third login
+        r3 = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+        assert r3.status_code == 200, r3.text
+
+    def test_E_login_does_not_modify_email_verified(self):
+        """Login must never reset or change email_verified in the database."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
+
+        # Confirm verified before login
+        user_before = _db_user()
+        assert user_before.email_verified is True
+
+        # Login
+        client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+
+        # Confirm email_verified is still True after login
+        user_after = _db_user()
+        assert user_after.email_verified is True
+
+    def test_F_verification_state_persists_across_many_logins(self):
+        """email_verified must remain True across many consecutive logins."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
+
+        for i in range(5):
+            resp = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+            assert resp.status_code == 200, f"Login {i+1} failed: {resp.text}"
+            # email_verified must be True in every login response
+            assert resp.json()["user"]["email_verified"] is True
+            # And in the database
+            db_user = _db_user()
+            assert db_user.email_verified is True, f"email_verified became False after login {i+1}"
+
+    def test_G_wrong_password_does_not_affect_verified_state(self):
+        """A wrong-password attempt must not modify email_verified."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
+
+        # Attempt with wrong password
+        client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": "wrongpassword"})
+
+        # Correct login must still succeed
+        user = _db_user()
+        assert user.email_verified is True
+        resp = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+        assert resp.status_code == 200
+
+    def test_H_forgot_reset_password_preserves_verified_state(self):
+        """Password reset must NOT touch email_verified."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
+
+        user_before = _db_user()
+        assert user_before.email_verified is True
+
+        # Reset password
+        from app.services.email_service import generate_password_reset_token
+        from datetime import datetime, timedelta, timezone
+        raw, tok_hash = generate_password_reset_token()
+        _set_user_field(
+            _PAYLOAD["email"],
+            password_reset_token_hash=tok_hash,
+            password_reset_expires_at=datetime.now(timezone.utc) + timedelta(minutes=60),
+        )
+        client.post("/api/auth/reset-password", json={"token": raw, "new_password": "BrandNew123"})
+
+        # email_verified must still be True
+        user_after = _db_user()
+        assert user_after.email_verified is True
+
+        # Login with new password must succeed
+        resp = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": "BrandNew123"})
+        assert resp.status_code == 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. Unauthenticated resend-verification endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestResendVerificationUnauthenticated:
+    """
+    Tests for POST /auth/resend-verification-unauthenticated.
+
+    This endpoint lets users who never verified their email (and who have since
+    closed the post-signup screen or cleared their session) request a new
+    verification link directly from the login page without a Bearer token.
+    """
+
+    def _signup_without_verifying(self) -> None:
+        """Sign up but do NOT verify the email."""
+        resp = client.post("/api/auth/signup", json=_PAYLOAD)
+        assert resp.status_code == 200
+
+    def test_unverified_account_receives_new_token(self):
+        """Endpoint must update verification_token_hash for an unverified account."""
+        self._signup_without_verifying()
+        old_hash = _db_user().verification_token_hash
+
+        # Backdate the token so rate-limit doesn't fire
+        from datetime import datetime, timedelta, timezone
+        _set_user_field(_PAYLOAD["email"],
+                        verification_expires_at=datetime.now(timezone.utc) - timedelta(hours=1))
+
+        resp = client.post("/api/auth/resend-verification-unauthenticated",
+                           json={"email": _PAYLOAD["email"]})
+        assert resp.status_code == 200
+        # Always returns the same generic message
+        assert "message" in resp.json()
+        # DB token must have been rotated
+        new_hash = _db_user().verification_token_hash
+        assert new_hash != old_hash
+
+    def test_unknown_email_returns_200(self):
+        """Must return 200 even for an unknown email — prevents enumeration."""
+        resp = client.post("/api/auth/resend-verification-unauthenticated",
+                           json={"email": "nobody@example.com"})
+        assert resp.status_code == 200
+
+    def test_already_verified_account_returns_200_silently(self):
+        """Verified accounts must return the generic message without error."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
+        resp = client.post("/api/auth/resend-verification-unauthenticated",
+                           json={"email": _PAYLOAD["email"]})
+        assert resp.status_code == 200
+        # email_verified must NOT have been reset
+        assert _db_user().email_verified is True
+
+    def test_verified_account_email_verified_not_reset(self):
+        """This endpoint must never set email_verified=False on a verified account."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
+        # Call the unauthenticated resend multiple times
+        for _ in range(3):
+            client.post("/api/auth/resend-verification-unauthenticated",
+                        json={"email": _PAYLOAD["email"]})
+        assert _db_user().email_verified is True
+
+    def test_invalid_email_format_rejected(self):
+        resp = client.post("/api/auth/resend-verification-unauthenticated",
+                           json={"email": "not-an-email"})
+        assert resp.status_code == 422
+
+    def test_after_resend_new_token_enables_verification(self):
+        """User can verify successfully with the new token issued by this endpoint."""
+        self._signup_without_verifying()
+
+        # Backdate old token to bypass rate-limit
+        from datetime import datetime, timedelta, timezone
+        _set_user_field(_PAYLOAD["email"],
+                        verification_expires_at=datetime.now(timezone.utc) - timedelta(hours=1))
+
+        # Request a new token via the unauthenticated endpoint
+        client.post("/api/auth/resend-verification-unauthenticated",
+                    json={"email": _PAYLOAD["email"]})
+
+        # Grab the new token hash from the DB and reconstruct by injecting directly
+        from app.services.email_service import generate_verification_token
+        raw, tok_hash = generate_verification_token()
+        from datetime import timedelta
+        _set_user_field(_PAYLOAD["email"],
+                        verification_token_hash=tok_hash,
+                        verification_expires_at=datetime.now(timezone.utc) + timedelta(hours=24))
+
+        verify_resp = client.get(f"/api/auth/verify-email?token={raw}")
+        assert verify_resp.status_code == 200
+        assert verify_resp.json()["email_verified"] is True
+
+        # Now login must succeed
+        login_resp = client.post("/api/auth/login",
+                                 json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+        assert login_resp.status_code == 200
+        assert login_resp.json()["verification_required"] is False

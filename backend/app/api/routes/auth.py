@@ -84,10 +84,12 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     user.verification_token_hash = None
     user.verification_expires_at = None
     db.commit()
+    db.refresh(user)
     # Send welcome email on first verification only
     if not already_verified:
         send_welcome_email(user.email, user.name)
-    return {"message": "Email verified successfully", "email_verified": True}
+    # Return the actual persisted value to make the response trustworthy
+    return {"message": "Email verified successfully", "email_verified": user.email_verified}
 
 
 # Resend cooldown: allow at most one resend per 60 seconds.
@@ -118,6 +120,43 @@ def resend_verification(db: Session = Depends(get_db), user: User = Depends(get_
         "verification_required": True,
         "verification_url": None if sent else verification_url,
     }
+
+
+@router.post("/resend-verification-unauthenticated", response_model=MessageResponse)
+def resend_verification_unauthenticated(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Resend a verification email to the given address without requiring a Bearer token.
+
+    Designed for users who closed the post-signup screen, cleared their session,
+    or whose signup token has expired — and now cannot log in because they never
+    verified their email.
+
+    Anti-enumeration: always returns the same generic message whether the email
+    exists, is already verified, or is unknown.
+    Rate-limited by the same 60-second cooldown as the authenticated resend.
+    """
+    _GENERIC = "If an account with that address exists and needs verification, a new email has been sent."
+    user = db.query(User).filter(User.email == str(data.email).lower()).first()
+    if not user or user.email_verified:
+        # Account unknown or already verified — return same message to prevent enumeration
+        return {"message": _GENERIC}
+    # Rate-limit: same cooldown as authenticated resend
+    if user.verification_expires_at:
+        issued_threshold = (
+            datetime.now(timezone.utc)
+            + timedelta(hours=24)
+            - timedelta(seconds=_RESEND_COOLDOWN_SECONDS)
+        )
+        expires_aware = user.verification_expires_at.replace(tzinfo=timezone.utc)
+        if expires_aware > issued_threshold:
+            return {"message": _GENERIC}  # Silently rate-limit; do not expose 429 here
+    token, token_hash = generate_verification_token()
+    user.verification_token_hash = token_hash
+    user.verification_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    db.commit()
+    verification_url = f"{settings.frontend_url}/verify-email?token={token}"
+    send_verification_email(user.email, user.name, verification_url)
+    return {"message": _GENERIC}
 
 
 # ── Password reset ────────────────────────────────────────────────────────────
