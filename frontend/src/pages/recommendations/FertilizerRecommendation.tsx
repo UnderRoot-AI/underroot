@@ -10,7 +10,7 @@ import type { FertilizerRecommendation } from "../../types/recommendation";
 import { Leaf } from "lucide-react";
 import { useT } from "../../i18n/useT";
 
-export default function FertilizerRecommendation() {
+export default function FertilizerRecommendationPage() {
   const [params] = useSearchParams();
   const testId = params.get("test");
   const t = useT();
@@ -21,7 +21,8 @@ export default function FertilizerRecommendation() {
   useEffect(() => {
     setLoading(true);
     setError("");
-    recommendationApi.fertilizer(testId || undefined)
+    recommendationApi
+      .fertilizer(testId || undefined)
       .then(setItems)
       .catch((e) => setError(e.response?.data?.detail || t("noFertRecs")))
       .finally(() => setLoading(false));
@@ -31,14 +32,25 @@ export default function FertilizerRecommendation() {
     <>
       <PageHeader title={t("fertRecTitle")} subtitle={t("fertRecSubtitle")} />
       <Card>
-        {loading ? <Loading /> : error ? (
+        {loading ? (
+          <Loading />
+        ) : error ? (
           <div className="alert alert-error">{error}</div>
         ) : items.length ? (
-          <div className="recommendation-list">
-            {items.map((x, i) => <RecommendationCard key={i} item={x} />)}
-          </div>
+          <section className="rec-section">
+            <h2 className="rec-section-heading">{t("recommendedFertilizers")}</h2>
+            <div className="rec-list">
+              {items.map((x, i) => (
+                <RecommendationCard key={i} item={x} />
+              ))}
+            </div>
+          </section>
         ) : (
-          <EmptyState icon={<Leaf />} title={t("noFertRecs")} text={t("runTestFirst")} />
+          <EmptyState
+            icon={<Leaf />}
+            title={t("noFertRecs")}
+            text={t("runTestFirst")}
+          />
         )}
       </Card>
     </>

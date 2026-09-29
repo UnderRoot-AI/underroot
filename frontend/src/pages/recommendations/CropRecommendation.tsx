@@ -10,7 +10,7 @@ import type { CropRecommendation } from "../../types/recommendation";
 import { Sprout } from "lucide-react";
 import { useT } from "../../i18n/useT";
 
-export default function CropRecommendation() {
+export default function CropRecommendationPage() {
   const [params] = useSearchParams();
   const testId = params.get("test");
   const t = useT();
@@ -21,7 +21,8 @@ export default function CropRecommendation() {
   useEffect(() => {
     setLoading(true);
     setError("");
-    recommendationApi.crops(testId || undefined)
+    recommendationApi
+      .crops(testId || undefined)
       .then(setItems)
       .catch((e) => setError(e.response?.data?.detail || t("noCropRecs")))
       .finally(() => setLoading(false));
@@ -31,14 +32,25 @@ export default function CropRecommendation() {
     <>
       <PageHeader title={t("cropRecTitle")} subtitle={t("cropRecSubtitle")} />
       <Card>
-        {loading ? <Loading /> : error ? (
+        {loading ? (
+          <Loading />
+        ) : error ? (
           <div className="alert alert-error">{error}</div>
         ) : items.length ? (
-          <div className="recommendation-list">
-            {items.map((x, i) => <RecommendationCard key={i} item={x} />)}
-          </div>
+          <section className="rec-section">
+            <h2 className="rec-section-heading">{t("recommendedCrops")}</h2>
+            <div className="rec-list">
+              {items.map((x, i) => (
+                <RecommendationCard key={i} item={x} />
+              ))}
+            </div>
+          </section>
         ) : (
-          <EmptyState icon={<Sprout />} title={t("noCropRecs")} text={t("runTestFirst")} />
+          <EmptyState
+            icon={<Sprout />}
+            title={t("noCropRecs")}
+            text={t("runTestFirst")}
+          />
         )}
       </Card>
     </>
