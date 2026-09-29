@@ -53,10 +53,25 @@ def _fake_sss():
     return _SS({"BodyText": {}, "Heading1": {}, "Heading2": {}, "Normal": {}})
 
 class _Noop:
-    def __init__(self, *a, **kw): pass
+    """Stub for any ReportLab class.
+
+    * Stores all kwargs as attributes so ``ParagraphStyle(name="Foo")`` exposes
+      ``.name`` correctly and ``_SS.add()`` can index it.
+    * When used as ``BaseDocTemplate`` the first positional arg is the output
+      buffer; ``build()`` writes a minimal ``%PDF`` signature so tests can
+      assert on the magic bytes.
+    """
+    def __init__(self, *a, **kw):
+        from io import BytesIO as _BIO
+        self._buf = a[0] if a and isinstance(a[0], _BIO) else None
+        # Expose all kwargs as attributes (e.g. name="RptTitle" → self.name)
+        for k, v in kw.items():
+            setattr(self, k, v)
     def __call__(self, *a, **kw): return self
     def setStyle(self, *a, **kw): pass
-    def build(self, *a, **kw): pass
+    def build(self, *a, **kw):
+        if self._buf is not None:
+            self._buf.write(b"%PDF-test\n")
     def addPageTemplates(self, *a, **kw): pass
     def _restrictSize(self, *a, **kw): pass
     imageWidth = 100
@@ -524,3 +539,152 @@ def test_recommendations_use_soil_data():
     # They should differ (different soils → different recommendations)
     assert set(crops_acid) != set(crops_alk), \
         f"Expected different crops for acid vs alkaline soil but got: {crops_acid} vs {crops_alk}"
+
+
+# ── PDF download tests ────────────────────────────────────────────────────────
+# The ReportLab stub (_Noop) writes b"%PDF-test\n" when build() is called,
+# so all assertions below work without a real PDF renderer.
+
+def _setup_test_and_report(email: str):
+    """Register user, create a soil test, generate a report, return (headers, test_id, report_id)."""
+    headers = _register_and_login(email)
+    r = client.post(
+        "/api/soil/tests",
+        json={"parameters": _SAMPLE_PARAMS, "location": "PDF Test Field"},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    test_id = r.json()["id"]
+
+    r2 = client.post(
+        "/api/reports/generate",
+        json={"soil_test_id": test_id},
+        headers=headers,
+    )
+    assert r2.status_code == 200, r2.text
+    report_id = r2.json()["id"]
+    return headers, test_id, report_id
+
+
+def test_pdf_download_authenticated_owner_200():
+    """Authenticated owner gets 200 + application/pdf + Content-Disposition attachment."""
+    headers, _, report_id = _setup_test_and_report("pdf_owner@example.com")
+
+    r = client.get(f"/api/reports/{report_id}/pdf", headers=headers)
+
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    cd = r.headers.get("content-disposition", "")
+    assert "attachment" in cd, f"Expected attachment in Content-Disposition, got: {cd!r}"
+    assert "filename" in cd, f"Expected filename in Content-Disposition, got: {cd!r}"
+
+
+def test_pdf_download_body_starts_with_pdf_magic():
+    """Response body starts with the %PDF magic bytes (stub writes b'%PDF-test\\n')."""
+    headers, _, report_id = _setup_test_and_report("pdf_magic@example.com")
+
+    r = client.get(f"/api/reports/{report_id}/pdf", headers=headers)
+
+    assert r.status_code == 200
+    assert isinstance(r.content, bytes), "Response body must be bytes"
+    assert r.content[:4] == b"%PDF", (
+        f"Expected body to start with %PDF, got: {r.content[:8]!r}"
+    )
+
+
+def test_pdf_download_unauthenticated_rejected():
+    """Request without an Authorization header must be rejected with 401."""
+    headers, _, report_id = _setup_test_and_report("pdf_noauth@example.com")
+
+    r = client.get(f"/api/reports/{report_id}/pdf")   # no auth header
+
+    assert r.status_code == 401, f"Expected 401, got {r.status_code}: {r.text}"
+
+
+def test_pdf_download_nonexistent_report_404():
+    """Requesting a report ID that does not exist returns 404."""
+    headers = _register_and_login("pdf_noexist@example.com")
+
+    r = client.get("/api/reports/999999/pdf", headers=headers)
+
+    assert r.status_code == 404, f"Expected 404, got {r.status_code}: {r.text}"
+
+
+def test_pdf_download_other_users_report_forbidden():
+    """User B cannot download User A's report — must receive 404 (ownership enforced)."""
+    headers_a, _, report_id_a = _setup_test_and_report("pdf_owner_a@example.com")
+    headers_b = _register_and_login("pdf_owner_b@example.com")
+
+    r = client.get(f"/api/reports/{report_id_a}/pdf", headers=headers_b)
+
+    assert r.status_code == 404, (
+        f"Expected 404 when user B requests user A's report, got {r.status_code}: {r.text}"
+    )
+
+
+def test_pdf_download_report_without_soil_test_404():
+    """A report that has no linked soil_test_id returns 404 with a useful detail message."""
+    from app.models.report import Report as _R
+
+    headers = _register_and_login("pdf_nostem@example.com")
+
+    # Retrieve user id via a soil test creation then delete the link
+    r_st = client.post(
+        "/api/soil/tests", json={"parameters": _SAMPLE_PARAMS}, headers=headers
+    )
+    test_id = r_st.json()["id"]
+
+    r_gen = client.post(
+        "/api/reports/generate", json={"soil_test_id": test_id}, headers=headers
+    )
+    report_id = r_gen.json()["id"]
+
+    # Sever the soil_test_id link directly in the DB
+    db = _TestingSession()
+    try:
+        rpt = db.query(_R).filter(_R.id == report_id).first()
+        rpt.soil_test_id = None
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.get(f"/api/reports/{report_id}/pdf", headers=headers)
+
+    assert r.status_code == 404, f"Expected 404 for report without soil test, got {r.status_code}"
+    detail = r.json().get("detail", "")
+    assert detail, "Expected a non-empty detail message for missing soil test"
+
+
+def test_pdf_download_invalid_report_id_422():
+    """Non-integer path segment for report_id returns 422 (FastAPI path validation)."""
+    headers = _register_and_login("pdf_invalid_id@example.com")
+
+    r = client.get("/api/reports/not-a-number/pdf", headers=headers)
+
+    assert r.status_code == 422, f"Expected 422 for non-integer report ID, got {r.status_code}"
+
+
+def test_pdf_generate_nonexistent_soil_test_404():
+    """POST /reports/generate with a soil_test_id that does not belong to the user returns 404."""
+    headers = _register_and_login("pdf_gen_notest@example.com")
+
+    r = client.post(
+        "/api/reports/generate",
+        json={"soil_test_id": 999999},
+        headers=headers,
+    )
+
+    assert r.status_code == 404, f"Expected 404 for missing soil test, got {r.status_code}: {r.text}"
+
+
+def test_pdf_download_content_disposition_filename_contains_soil_id():
+    """Content-Disposition filename includes the soil test ID."""
+    headers, test_id, report_id = _setup_test_and_report("pdf_filename@example.com")
+
+    r = client.get(f"/api/reports/{report_id}/pdf", headers=headers)
+
+    assert r.status_code == 200
+    cd = r.headers.get("content-disposition", "")
+    assert str(test_id) in cd, (
+        f"Expected soil test ID {test_id} in Content-Disposition, got: {cd!r}"
+    )

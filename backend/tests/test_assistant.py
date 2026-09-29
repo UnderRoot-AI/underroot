@@ -63,10 +63,18 @@ def _fake_sss():
     return ss
 
 class _Noop:
-    def __init__(self, *a, **kw): pass
+    """ReportLab stub. Stores kwargs as attributes so ParagraphStyle(name="Foo")
+    exposes .name correctly for _SS.add() to index it."""
+    def __init__(self, *a, **kw):
+        from io import BytesIO as _BIO
+        self._buf = a[0] if a and isinstance(a[0], _BIO) else None
+        for k, v in kw.items():
+            setattr(self, k, v)
     def __call__(self, *a, **kw): return self
     def setStyle(self, *a, **kw): pass
-    def build(self, *a, **kw): pass
+    def build(self, *a, **kw):
+        if self._buf is not None:
+            self._buf.write(b"%PDF-test\n")
     def addPageTemplates(self, *a, **kw): pass
     def _restrictSize(self, *a, **kw): pass
     imageWidth = 100

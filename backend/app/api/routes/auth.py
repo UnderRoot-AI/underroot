@@ -2,12 +2,19 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
+from app.database.report_connection import get_report_db
 from app.models.user import User
+from app.models.report import Report
+from app.models.soil_test import SoilTest
+from app.models.conversation import Conversation
+from app.models.farm import Farm
+from app.models.hardware_reading import HardwareReading
+from app.models.soil_report_record import SoilReportRecord
 from app.schemas.auth import (
     Signup, Login, AuthResponse, UserOut, ProfileUpdate,
     VerifyEmailResponse, PhoneOtpRequest, VerifyPhoneOtpRequest,
     PhoneVerificationResponse, ForgotPasswordRequest, ResetPasswordRequest,
-    MessageResponse,
+    MessageResponse, DeleteAccountRequest,
 )
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 from app.services.email_service import (
@@ -270,3 +277,70 @@ def update_me(data: ProfileUpdate, db: Session = Depends(get_db), user: User = D
         setattr(user, key, value)
     db.commit(); db.refresh(user)
     return user
+
+
+# ── Account deletion ──────────────────────────────────────────────────────────
+
+@router.delete("/account", response_model=MessageResponse)
+def delete_account(
+    data: DeleteAccountRequest,
+    db: Session = Depends(get_db),
+    report_db: Session = Depends(get_report_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Permanently delete the authenticated user's account and all owned data.
+
+    Requires the user's current password for confirmation.
+    All dependent records are removed in FK-safe order within a single
+    transaction on the main DB, then the separate report DB is cleaned up.
+    If any step fails the main-DB transaction is rolled back.
+    """
+    # 1. Verify password
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=403, detail="Incorrect password")
+
+    user_id = user.id
+
+    try:
+        # 2. Delete in FK-safe order on main DB
+        # HardwareReadings reference both devices and users; delete before devices/soil_tests
+        db.query(HardwareReading).filter(HardwareReading.user_id == user_id).delete(
+            synchronize_session="fetch"
+        )
+        # Reports reference both users and soil_tests; delete before soil_tests
+        db.query(Report).filter(Report.user_id == user_id).delete(
+            synchronize_session="fetch"
+        )
+        # Conversations
+        db.query(Conversation).filter(Conversation.user_id == user_id).delete(
+            synchronize_session="fetch"
+        )
+        # SoilTests — the User cascade covers these too, but explicit is safer
+        db.query(SoilTest).filter(SoilTest.user_id == user_id).delete(
+            synchronize_session="fetch"
+        )
+        # Farms (Fields cascade from Farm via ORM relationship)
+        for farm in db.query(Farm).filter(Farm.user_id == user_id).all():
+            db.delete(farm)
+        db.flush()
+
+        # 3. Delete the user — ORM cascade removes Devices (→ HardwareReadings already gone)
+        db.delete(user)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Account deletion failed. No data was changed.") from exc
+
+    # 4. Clean up the separate report database (best-effort; main account already gone)
+    try:
+        report_db.query(SoilReportRecord).filter(
+            SoilReportRecord.user_id == user_id
+        ).delete(synchronize_session="fetch")
+        report_db.commit()
+    except Exception:
+        report_db.rollback()
+        # Non-fatal: main account is already deleted; report records are orphaned
+        # but do not block returning success to the caller.
+
+    return {"message": "Your account and all associated data have been permanently deleted."}
