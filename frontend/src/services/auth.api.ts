@@ -11,6 +11,7 @@ export const authApi = {
   async verifyPhoneOtp(otp:string) { const { data } = await api.post("/auth/verify-phone-otp", {otp}); return data as {message:string;phone_verified:boolean}; },
   async forgotPassword(email:string) { const { data } = await api.post<{message:string}>("/auth/forgot-password", {email}); return data; },
   async resetPassword(token:string, new_password:string) { const { data } = await api.post<{message:string}>("/auth/reset-password", {token, new_password}); return data; },
+  async deleteAccount(password: string) { const { data } = await api.delete<{message:string}>("/auth/account", { data: { password } }); return data; },
 };
 export interface ProfileUpdatePayload { name?: string; state?: string; phone?: string; language?: string; location?: string; district?: string; city_village?: string; }
 export const updateProfile = async (payload: ProfileUpdatePayload) => { const { data } = await api.put<User>("/auth/me", payload); return data; };

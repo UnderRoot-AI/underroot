@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BarChart3, Leaf, Sprout, AlertTriangle, Download, FileText } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { useSearchParams, Link, useNavigate } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import Card from "../../components/ui/Card";
 import Loading from "../../components/common/Loading";
@@ -32,7 +32,6 @@ export default function SoilAnalyzer() {
   const [params] = useSearchParams();
   const testId = params.get("test");
   const t = useT();
-  const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,19 +54,39 @@ export default function SoilAnalyzer() {
     try {
       const report = await reportApi.generate(testId);
       const blob = await reportApi.downloadPdf(report.id);
+
+      // Trigger browser download
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `soil-report-${testId}.pdf`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      // Defer revoke so the browser has time to start the download
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (e: any) {
-      const msg =
-        e.response?.data?.detail ||
-        e.response?.statusText ||
-        e.message ||
-        "Could not download PDF. Try again.";
-      setPdfError(msg);
+      // For blob responses, axios wraps the error body as a Blob.
+      // Read it as text to extract the real error detail.
+      let msg: string = e.message || "";
+      if (e.response?.data instanceof Blob) {
+        try {
+          const text = await e.response.data.text();
+          const json = JSON.parse(text);
+          msg = json?.detail || json?.message || text || msg;
+        } catch {
+          // Blob was not JSON — use raw text if available
+          try { msg = await e.response.data.text() || msg; } catch { /* ignore */ }
+        }
+      } else {
+        msg =
+          e.response?.data?.detail ||
+          e.response?.data?.message ||
+          e.response?.statusText ||
+          msg ||
+          "Could not download PDF. Please try again.";
+      }
+      setPdfError(msg || "Could not download PDF. Please try again.");
     } finally {
       setPdfLoading(false);
     }
