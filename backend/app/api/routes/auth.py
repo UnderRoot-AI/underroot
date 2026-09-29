@@ -40,7 +40,9 @@ def signup(data: Signup, db: Session = Depends(get_db)):
     return {
         "access_token": create_access_token(user.id),
         "user": user,
-        "verification_required": (not user.email_verified) or (bool(user.phone) and not user.phone_verified),
+        # verification_required is true until email is verified.
+        # Phone verification is NOT part of the signup flow.
+        "verification_required": not user.email_verified,
         # Returned only for local development when SMTP is not configured.
         "verification_url": None if sent else verification_url,
     }
@@ -51,13 +53,19 @@ def login(data: Login, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == str(data.email).lower()).first()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(401, "Invalid email or password")
+    if not user.email_verified:
+        raise HTTPException(
+            401,
+            "Please verify your email address before signing in. "
+            "Check your inbox for the verification link, or request a new one.",
+        )
     user.last_login_at = datetime.now(timezone.utc)
     user.login_count = int(user.login_count or 0) + 1
     db.commit(); db.refresh(user)
     return {
         "access_token": create_access_token(user.id),
         "user": user,
-        "verification_required": (not user.email_verified) or (bool(user.phone) and not user.phone_verified),
+        "verification_required": False,
     }
 
 

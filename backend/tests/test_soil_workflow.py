@@ -357,8 +357,11 @@ def _register_and_login(email: str, password: str = "Test@1234"):
     """
     from urllib.parse import urlparse, parse_qs
 
-    # 1. Signup
-    r = client.post("/api/auth/signup", json={"email": email, "password": password, "name": "Test User"})
+    # 1. Signup (state + district are now required fields)
+    r = client.post("/api/auth/signup", json={
+        "email": email, "password": password, "name": "Test User",
+        "state": "Gujarat", "district": "Mehsana",
+    })
     assert r.status_code in (200, 201), r.text
     data = r.json()
 

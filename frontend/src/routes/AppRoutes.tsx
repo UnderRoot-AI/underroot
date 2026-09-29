@@ -34,7 +34,9 @@ export default function AppRoutes(){
     <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPassword/>}/>
     <Route path={ROUTES.RESET_PASSWORD} element={<ResetPassword/>}/>
     <Route path={ROUTES.VERIFY_EMAIL} element={<VerifyEmail/>}/>
-    <Route element={<ProtectedRoute/>}><Route path={ROUTES.VERIFY_PHONE} element={<VerifyPhone/>}/></Route>
+    {/* VerifyPhone is kept as a standalone route for backwards compatibility
+        but is no longer reachable from the signup/login flow. */}
+    <Route path={ROUTES.VERIFY_PHONE} element={<VerifyPhone/>}/>
     <Route path={ROUTES.DEVELOPER_LOGIN} element={<DeveloperLogin/>}/>
     <Route element={<ProtectedRoute/>}>
       <Route element={<AppLayout/>}>

@@ -46,13 +46,15 @@ export default function Login() {
       } else {
         setUser(await authApi.me());
       }
-      if (data.user?.phone && !data.user.phone_verified) {
-        navigate(ROUTES.VERIFY_PHONE);
+      // Phone verification is not part of the login flow.
+      navigate(ROUTES.DASHBOARD);
+    } catch (err: any) {
+      const detail: string = err?.response?.data?.detail ?? "";
+      if (detail.toLowerCase().includes("verify your email")) {
+        setError("Please verify your email address before signing in. Check your inbox for the verification link.");
       } else {
-        navigate(ROUTES.DASHBOARD);
+        setError(getErrorMessage(err, "Invalid email or password"));
       }
-    } catch (err) {
-      setError(getErrorMessage(err, "Invalid email or password"));
     } finally {
       setLoading(false);
     }

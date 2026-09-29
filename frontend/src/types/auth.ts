@@ -20,4 +20,4 @@ export interface AuthResponse {
   development_otp?: string;
 }
 export interface LoginPayload { email: string; password: string; }
-export interface SignupPayload { name: string; email: string; password: string; phone?: string; language?: string; state?: string; district?: string; city_village?: string; }
+export interface SignupPayload { name: string; email: string; password: string; state: string; district: string; phone?: string; language?: string; city_village?: string; }

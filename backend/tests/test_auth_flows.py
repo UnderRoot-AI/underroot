@@ -94,6 +94,8 @@ _PAYLOAD = {
     "name": "Test Farmer",
     "email": "farmer@example.com",
     "password": "Password123",
+    "state": "Gujarat",
+    "district": "Mehsana",
 }
 
 
@@ -178,10 +180,19 @@ class TestSignup:
 
 class TestLogin:
     def test_login_success(self):
-        _signup()
+        """Login must succeed only after email verification."""
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
         resp = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
         assert resp.status_code == 200
         assert resp.json()["access_token"]
+
+    def test_login_unverified_is_rejected(self):
+        """Unverified account must be rejected at login."""
+        _signup()
+        resp = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
+        assert resp.status_code in (401, 403)
 
     def test_login_wrong_password(self):
         _signup()
@@ -193,7 +204,9 @@ class TestLogin:
         assert resp.status_code == 401
 
     def test_login_updates_last_login_at(self):
-        _signup()
+        data = _signup()
+        token = _extract_token(data)
+        client.get(f"/api/auth/verify-email?token={token}")
         client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
         user = _db_user()
         assert user.last_login_at is not None
@@ -365,14 +378,17 @@ class TestResetPassword:
         assert "successfully" in resp.json()["message"].lower()
 
     def test_old_password_no_longer_works(self):
-        _signup()
+        # Verify email so login check works
+        data = _signup()
+        client.get(f"/api/auth/verify-email?token={_extract_token(data)}")
         _issue_reset_token()
         client.post("/api/auth/reset-password", json={"token": _issue_reset_token(), "new_password": "NewPass123"})
         r = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": _PAYLOAD["password"]})
         assert r.status_code == 401
 
     def test_new_password_works(self):
-        _signup()
+        data = _signup()
+        client.get(f"/api/auth/verify-email?token={_extract_token(data)}")
         new_pw = "BrandNewPass99"
         client.post("/api/auth/reset-password", json={"token": _issue_reset_token(), "new_password": new_pw})
         r = client.post("/api/auth/login", json={"email": _PAYLOAD["email"], "password": new_pw})

@@ -1,5 +1,10 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+import re
+
+# Indian mobile number: optional, but if supplied must be 10 digits starting with 6–9
+# Accepts bare 10-digit format (e.g. 9876543210) or +91 prefixed (e.g. +919876543210)
+_PHONE_RE = re.compile(r"^(\+91[-\s]?|0)?[6-9]\d{9}$")
 
 class Signup(BaseModel):
     name: str = Field(min_length=2, max_length=120)
@@ -7,9 +12,45 @@ class Signup(BaseModel):
     password: str = Field(min_length=6, max_length=128)
     phone: str | None = None
     language: str = "en"
-    state: str | None = None
-    district: str | None = None
+    state: str = Field(min_length=1, max_length=120)
+    district: str = Field(min_length=1, max_length=120)
     city_village: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Name cannot be blank")
+        return v.strip()
+
+    @field_validator("state")
+    @classmethod
+    def state_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("State is required")
+        return v.strip()
+
+    @field_validator("district")
+    @classmethod
+    def district_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("District is required")
+        return v.strip()
+
+    @field_validator("phone")
+    @classmethod
+    def phone_format(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if not _PHONE_RE.match(cleaned):
+            raise ValueError(
+                "Enter a valid Indian mobile number (10 digits, starting with 6–9), "
+                "e.g. 9876543210 or +91 9876543210"
+            )
+        return cleaned
 
 class Login(BaseModel):
     email: EmailStr
