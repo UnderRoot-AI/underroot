@@ -6,7 +6,9 @@ Features
 - Beautiful branded HTML emails for every event
 - Plain-text fallback in every email (multipart/alternative)
 - Async sending via ThreadPoolExecutor so FastAPI routes never block
-- Console fallback when SMTP is not configured (dev mode)
+- Resend HTTPS API when RESEND_API_KEY is configured (production)
+- SMTP fallback when only SMTP settings are configured (optional local dev)
+- Console fallback when neither is configured (dev mode)
 - Structured logging for every send attempt
 - Single send_email() primitive; all typed helpers sit on top
 - Token utilities (verification + password reset) live here
@@ -147,6 +149,10 @@ def _divider() -> str:
 # Core send primitive
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _resend_configured() -> bool:
+    return bool(settings.resend_api_key)
+
+
 def _smtp_configured() -> bool:
     return bool(
         settings.smtp_host
@@ -156,8 +162,34 @@ def _smtp_configured() -> bool:
     )
 
 
-def _do_send(to: str, subject: str, html: str, plain: str) -> None:
-    """Blocking send. Always called inside the thread pool."""
+def _do_send_resend(to: str, subject: str, html: str, plain: str) -> None:
+    """Send via Resend HTTPS API. Always called inside the thread pool."""
+    import resend  # imported here so tests can easily patch it
+
+    resend.api_key = settings.resend_api_key
+    from_addr = f"{settings.email_from_name} <{settings.resend_from_email}>"
+    try:
+        params: resend.Emails.SendParams = {
+            "from": from_addr,
+            "to": [to],
+            "subject": subject,
+            "html": html,
+            "text": plain,
+        }
+        response = resend.Emails.send(params)
+        email_id = response.get("id") if isinstance(response, dict) else getattr(response, "id", None)
+        logger.info("resend email queued to=%s subject=%r id=%s", to, subject, email_id)
+    except Exception as exc:
+        # Log safely — never expose the API key or email tokens in the message
+        logger.error(
+            "resend email failed to=%s subject=%r error=%s",
+            to, subject, type(exc).__name__,
+        )
+        raise
+
+
+def _do_send_smtp(to: str, subject: str, html: str, plain: str) -> None:
+    """Blocking SMTP send. Always called inside the thread pool."""
     from_addr = settings.smtp_from
     from_name = getattr(settings, "email_from_name", "UnderRoot")
     from_header = f"{from_name} <{from_addr}>"
@@ -177,16 +209,16 @@ def _do_send(to: str, subject: str, html: str, plain: str) -> None:
             smtp.ehlo()
             smtp.login(settings.smtp_user, settings.smtp_password)
             smtp.sendmail(from_addr, [to], msg.as_bytes())
-        logger.info("email sent  to=%s subject=%r", to, subject)
+        logger.info("smtp email sent to=%s subject=%r", to, subject)
     except Exception as exc:
-        logger.error("email failed to=%s subject=%r error=%s", to, subject, exc)
+        logger.error("smtp email failed to=%s subject=%r error=%s", to, subject, exc)
         raise
 
 
 def _console_send(to: str, subject: str, plain: str) -> None:
     border = "─" * 60
     logger.info(
-        "\n%s\n📧 DEV EMAIL (SMTP not configured)\nTo:      %s\nSubject: %s\n%s\n%s\n%s",
+        "\n%s\n📧 DEV EMAIL (no email provider configured)\nTo:      %s\nSubject: %s\n%s\n%s\n%s",
         border, to, subject, border, textwrap.dedent(plain).strip(), border,
     )
 
@@ -194,18 +226,25 @@ def _console_send(to: str, subject: str, plain: str) -> None:
 def send_email(to: str, subject: str, html: str, plain: str) -> bool:
     """
     Fire-and-forget email.  Runs in the thread pool so it never blocks
-    the FastAPI request cycle.  Falls back to console logging when SMTP
-    is not configured (development mode).
+    the FastAPI request cycle.
 
-    Returns True when SMTP is configured (email queued), False when falling
-    back to console (dev mode) — callers use this to decide whether to expose
-    raw URLs in API responses.
+    Priority:
+      1. Resend HTTPS API  — when RESEND_API_KEY is set (production)
+      2. SMTP              — when SMTP_HOST/USER/PASSWORD/FROM are all set
+      3. Console log       — development fallback (no delivery)
+
+    Returns True when an actual delivery provider is configured (Resend or
+    SMTP), False when falling back to console logging.  Callers use this to
+    decide whether to expose raw URLs in API responses.
     """
-    if not _smtp_configured():
-        _console_send(to, subject, plain)
-        return False
-    _pool.submit(_do_send, to, subject, html, plain)
-    return True
+    if _resend_configured():
+        _pool.submit(_do_send_resend, to, subject, html, plain)
+        return True
+    if _smtp_configured():
+        _pool.submit(_do_send_smtp, to, subject, html, plain)
+        return True
+    _console_send(to, subject, plain)
+    return False
 
 
 # ─────────────────────────────────────────────────────────────────────────────

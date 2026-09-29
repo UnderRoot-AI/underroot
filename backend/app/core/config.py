@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     developer_email: str = "underroot@gmail.com"
     developer_password: str = "underroot4"
     developer_password_hash: str = ""
+    resend_api_key: str = ""
+    resend_from_email: str = "onboarding@resend.dev"
     sms_provider: str = "console"
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""

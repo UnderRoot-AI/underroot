@@ -14,3 +14,4 @@ PyMuPDF==1.26.7
 reportlab==4.4.9
 pyserial==3.5
 email-validator==2.2.0
+resend==2.10.0
