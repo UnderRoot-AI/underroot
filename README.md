@@ -1,304 +1,721 @@
-﻿# UnderRoot — Smart Soil Health Detection and Decision Support System
+# UnderRoot
 
-AI-powered soil health intelligence platform for smarter farming.
+> **Know Your Soil. Grow Smarter.**
 
-This project keeps the existing React UI structure/style and delivers:
+UnderRoot is an AI-powered soil health intelligence platform designed to turn soil measurements into clear, actionable insights for better agricultural decisions.
 
-- Soil-probe/hardware values → soil analyzer → parameter analysis → crop + fertilizer recommendations.
-- OCR for uploaded PDF/image soil reports, followed by verification and analysis.
-- Separate `soil_reports.db` for soil-report history.
-- Working Random Forest crop and fertilizer recommendation models with retraining script.
-- RAG assistant using the local agriculture knowledge base.
-- Working English/Hindi/Gujarati language selector persisted to user profiles.
-- Developer login with platform statistics, location-wise user table and CSV download.
-- Developer CRUD for government schemes/information.
-- State, district and village/city stored with user profiles and included in developer exports.
+It combines soil analysis, health scoring, crop and fertilizer recommendations, connected-device data ingestion, digital soil reports, and an AI assistant into one platform.
 
-## Architecture
+---
+
+## 🌱 What is UnderRoot?
+
+Soil testing often produces numbers without making it easy to understand what those numbers mean or what action should be taken next.
+
+UnderRoot addresses this by providing a complete soil intelligence workflow:
+
+**Soil Data → Analysis → Health Score → Recommendations → Report → Decision Support**
+
+The platform can work with manually entered soil-test data as well as readings ingested from supported hardware/software integrations.
+
+---
+
+## ✨ Core Features
+
+### 🧪 Soil Health Analysis
+
+Analyze important soil parameters including:
+
+- pH
+- Electrical Conductivity (EC)
+- Nitrogen (N)
+- Phosphorus (P)
+- Potassium (K)
+- Organic Carbon (OC)
+- Moisture
+- Temperature
+- Sulphur (S)
+- Zinc (Zn)
+- Iron (Fe)
+- Manganese (Mn)
+- Copper (Cu)
+- Boron (B)
+
+The analyzer identifies:
+
+- Optimal values
+- Low values
+- High values
+- Critical conditions
+- Missing parameters
+- Deficiencies
+- Excesses
+- Warnings
+
+A deterministic soil-health score from **0–100** is generated along with a health status such as:
+
+- Excellent
+- Good
+- Needs Attention
+- Poor
+- Awaiting Data
+
+---
+
+### 🌾 Crop Recommendations
+
+UnderRoot evaluates soil conditions and provides crop recommendations based on available soil parameters.
+
+Recommendations include:
+
+- Crop name
+- Suitability
+- Reasoning
+- Season
+- Expected duration
+- Relevant soil conditions
+
+The system is designed to make recommendations understandable rather than simply displaying a crop name.
+
+---
+
+### 🧴 Fertilizer Recommendations
+
+The fertilizer recommendation system considers soil deficiencies and other available parameters.
+
+Recommendations can include:
+
+- Fertilizer/product type
+- Application rate
+- Frequency
+- Reasoning
+- Precautions
+- Important notes
+
+The recommendation interface separates the explanation into clear sections so users can understand **why** a recommendation was generated.
+
+> Recommendations are decision-support information and should be validated against local agronomic conditions and professional guidance before application.
+
+---
+
+## 🤖 AI Soil Assistant
+
+UnderRoot includes a context-aware AI assistant designed around soil-health information.
+
+The assistant can use:
+
+- Latest soil-test data
+- Soil health score
+- Soil health status
+- Detected deficiencies
+- Detected excesses
+- Crop recommendations
+- Fertilizer recommendations
+- Recent conversation history
+- Local soil-health knowledge
+
+The assistant supports multiple languages, including:
+
+- English
+- Hindi
+- Gujarati
+- Marathi
+
+The assistant is designed to ground responses in available UnderRoot soil data rather than acting as a general-purpose chatbot.
+
+---
+
+## 📡 Connected Hardware
+
+UnderRoot includes a device-ingestion architecture for receiving soil readings from connected hardware.
+
+The current software architecture supports:
 
 ```text
-                         +----------------------+
-Hardware Soil Probe ---->|                      |
-                         |   FastAPI Backend    |
-OCR PDF/Image ---------->|                      |
-                         +----------+-----------+
-                                    |
-          +-------------------------+--------------------------+
-          |                         |                          |
-          v                         v                          v
-   Soil Analyzer              ML Models                    RAG
-   pH/N/P/K/EC/...            Crop RF                       Local KB
-   health + status            Fertilizer RF                 Assistant
-          |                         |
-          +------------+------------+
-                       v
-              Soil Report History
-                       |
-          +------------+-------------+
-          |                          |
-   smart_soil.db              soil_reports.db
-   users/tests/etc.            report history/OCR/RAG
-
-Developer Control Center
-  ├─ User statistics
-  ├─ User list by State/District/Village
-  ├─ CSV export
-  └─ Government scheme CRUD
+Soil Device
+     │
+     ▼
+Device / Gateway / Integration
+     │
+     ▼
+UnderRoot Ingestion API
+     │
+     ├── Raw Hardware Reading
+     │
+     └── Soil Test
+             │
+             ▼
+       Soil Analysis
+             │
+             ├── Health Score
+             ├── Deficiencies
+             ├── Recommendations
+             └── Reports
 ```
+The platform is designed to support integrations such as:
 
-## Local development
+BLE gateways
+RS485 / Modbus gateways
+LoRaWAN systems
+MQTT systems
+HTTP integrations
+Other supported device adapters
+SoilX Integration
 
-### Backend
+The project has been designed with commercial soil-sensing hardware such as the REVE Nano-Science SoilX ecosystem in mind.
 
-Python 3.12 or 3.13 recommended. Python 3.14 is supported by the project code.
+However, UnderRoot does not claim direct proprietary SoilX BLE communication unless an official/public integration interface is available.
 
-```powershell
+The current implementation provides an HTTP-based hardware ingestion pipeline and simulator so the complete software workflow can be developed and tested without depending on proprietary communication protocols.
+
+🔌 Device Management
+
+Authenticated users can manage connected devices through the platform.
+
+Available device functionality includes:
+
+Register a device
+View devices
+View device details
+Delete devices
+Submit hardware readings
+View device readings
+View the latest device reading
+Generate soil-test records from hardware readings
+Device API
+GET    /api/devices
+POST   /api/devices
+GET    /api/devices/{device_id}
+DELETE /api/devices/{device_id}
+
+POST   /api/devices/{device_id}/readings
+GET    /api/devices/{device_id}/readings
+GET    /api/devices/{device_id}/readings/latest
+
+Hardware-generated soil tests preserve their source as:
+
+source = hardware
+
+and maintain the relationship with the originating device.
+
+🧪 Hardware Simulator
+
+UnderRoot includes a device simulator for testing the complete ingestion pipeline.
+
+Example:
+
 cd backend
+
+.\.venv\Scripts\python.exe scripts\simulate_device.py `
+  --email your@email.com `
+  --password YourPassword `
+  --device-pk 1 `
+  --count 3 `
+  --interval 2 `
+  --vary
+
+The simulator can generate varying soil measurements and submit them through the same API workflow used by hardware integrations.
+
+📄 Soil Reports
+
+UnderRoot generates digital soil-health reports containing:
+
+UnderRoot branding
+Soil test information
+Field information
+Test date
+Health score
+Health status
+Parameter values
+Parameter statuses
+Key findings
+Crop recommendations
+Fertilizer recommendations
+
+Reports are generated as PDF documents.
+
+The PDF system includes protected report access so users cannot retrieve another user's report through the API.
+
+🔐 Authentication & Security
+
+UnderRoot includes a complete authentication workflow.
+
+Account Features
+User registration
+Email verification
+Login
+Logout
+Forgot password
+Reset password
+Password validation
+Resend verification email
+Account deletion
+Protected authenticated routes
+Email Verification
+
+Email verification is required before an account can be used for normal login.
+
+Unverified accounts are blocked from login until verification is completed.
+
+Password Reset
+
+The password-reset workflow allows users to:
+
+Request a password reset
+Receive a reset link
+Set a new password
+Log in using the new password
+
+The previous password is no longer accepted after a successful reset.
+
+Account Deletion
+
+Users can permanently delete their account after confirming their password.
+
+User-owned application data is removed according to the platform's account-deletion workflow.
+
+👨‍💻 Admin / Developer Panel
+
+UnderRoot includes a protected developer/admin panel for platform administration.
+
+The developer panel provides visibility into:
+
+Dashboard statistics
+Users
+Email verification status
+Soil tests
+Devices
+Reports
+Schemes
+
+It also provides search functionality across administrative sections.
+
+Administrative endpoints are protected separately from normal user authentication.
+
+Normal users cannot access developer-only endpoints.
+
+🏗️ Architecture
+
+High-level architecture:
+
+                    ┌─────────────────────┐
+                    │      Frontend       │
+                    │   React + Vite      │
+                    └──────────┬──────────┘
+                               │
+                               │ REST API
+                               ▼
+                    ┌─────────────────────┐
+                    │       FastAPI       │
+                    │      Backend        │
+                    └──────────┬──────────┘
+                               │
+             ┌─────────────────┼─────────────────┐
+             │                 │                 │
+             ▼                 ▼                 ▼
+       Authentication     Soil Services     Device Services
+             │                 │                 │
+             │                 ▼                 ▼
+             │          Soil Analyzer      Hardware Readings
+             │                 │
+             │        ┌────────┴────────┐
+             │        ▼                 ▼
+             │   Recommendations     Reports
+             │        │                 │
+             └────────┴────────┬────────┘
+                               │
+                               ▼
+                         Database Layer
+🛠️ Technology Stack
+Frontend
+React
+TypeScript
+Vite
+Tailwind CSS
+React Router
+Axios
+Backend
+Python
+FastAPI
+SQLAlchemy
+Pydantic
+Uvicorn
+Database
+Relational database architecture
+SQLAlchemy ORM
+Persistent soil-test, user, device, reading, report and application data
+Testing
+Pytest
+FastAPI TestClient
+Frontend production builds
+Document Generation
+ReportLab
+📁 Project Structure
+underroot/
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── routes/
+│   │   ├── assets/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── services/
+│   │   └── main.py
+│   │
+│   ├── scripts/
+│   │   └── simulate_device.py
+│   │
+│   ├── tests/
+│   ├── requirements.txt
+│   └── .env
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── ...
+│   ├── package.json
+│   └── .env
+│
+├── README.md
+└── .gitignore
+🚀 Local Development
+Prerequisites
+
+Install:
+
+Python 3.11+
+Node.js 20+
+npm
+Git
+A supported relational database
+1. Clone the Repository
+git clone https://github.com/UnderRoot-AI/underroot.git
+cd underroot
+2. Backend Setup
+
+Open PowerShell:
+
+cd backend
+
+Create the virtual environment:
+
 python -m venv .venv
+
+Activate it:
+
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python scripts/train_models.py
+
+Install dependencies:
+
+python -m pip install -r requirements.txt
+
+Configure the backend .env file with the required application and database settings.
+
+Start the backend:
+
 uvicorn app.main:app --reload --port 8001
-```
 
-API docs: http://127.0.0.1:8001/docs
-Health:   http://127.0.0.1:8001/health
+Backend:
 
-Copy `backend/.env.example` to `backend/.env` and fill in your values before starting.
+http://127.0.0.1:8001
 
-### Frontend
+API:
 
-```powershell
+http://127.0.0.1:8001/api
+
+API documentation:
+
+http://127.0.0.1:8001/docs
+3. Frontend Setup
+
+Open another PowerShell terminal:
+
 cd frontend
+
+Install dependencies:
+
 npm install
+
+Create/configure the frontend .env:
+
+VITE_API_URL=http://127.0.0.1:8001/api
+
+Start the development server:
+
 npm run dev
-```
 
-Copy `frontend/.env.example` to `frontend/.env` before starting.
+The frontend will normally be available at:
 
-If Vite uses port 5175, the backend CORS list already includes both localhost and 127.0.0.1 on 5175.
+http://localhost:5173
+🔑 Environment Variables
 
-## OCR dependency
+Never commit secrets to GitHub.
 
-For image/scanned-PDF OCR, install Tesseract OCR on Windows and add `tesseract.exe` to PATH.
-Text PDFs are processed through `pypdf` without Tesseract when the PDF contains selectable text.
+Example frontend configuration:
 
----
+VITE_API_URL=http://127.0.0.1:8001/api
 
-## Deployment (Render + Vercel)
+Backend environment variables depend on the deployment configuration and should be stored in the backend .env file.
 
-### Backend — Render Web Service
+Typical configuration may include:
 
-| Setting         | Value                                              |
-|-----------------|---------------------------------------------------|
-| Root Directory  | `backend`                                         |
-| Runtime         | Python 3                                          |
-| Build Command   | `pip install -r requirements.txt`                 |
-| Start Command   | `uvicorn app.main:app --host 0.0.0.0 --port $PORT`|
+DATABASE_URL=...
+SECRET_KEY=...
 
-#### SQLite persistence on Render
+Email-service credentials, database credentials, API keys and other secrets must remain outside the repository.
 
-Render's default web-service filesystem is ephemeral. SQLite data is lost on redeploy or
-restart unless the databases are stored on a Persistent Disk.
+🧪 Testing
 
-**Add a Persistent Disk to the Render Web Service:**
+Run backend tests from the backend directory:
 
-- Mount path: `/var/data`
-- Size: choose according to your expected data volume (1 GB is sufficient to start)
+pytest -q
 
-SQLite is suitable for low-to-medium traffic loads. It is not designed for high-concurrency
-write-heavy production workloads. For large scale consider migrating to PostgreSQL in the future.
+The latest validated project state passed:
 
-#### Render environment variables
+229 passed, 1 warning
 
-Set all of the following in the Render dashboard under **Environment → Environment Variables**.
+The warning is related to a dependency deprecation and does not represent a failing test.
 
-| Variable                       | Example production value                                  | Notes                                               |
-|-------------------------------|----------------------------------------------------------|-----------------------------------------------------|
-| `DATABASE_URL`                 | `sqlite:////var/data/smart_soil.db`                       | Four slashes = absolute path on the Persistent Disk |
-| `SOIL_REPORT_DATABASE_URL`     | `sqlite:////var/data/soil_reports.db`                     | Four slashes = absolute path on the Persistent Disk |
-| `UPLOAD_DIR`                   | `/var/data/uploads`                                       | Uploaded files — must be on the Persistent Disk     |
-| `JWT_SECRET`                   | *(long random string — generate with `openssl rand -hex 32`)* | Never commit this value                         |
-| `CORS_ORIGINS`                 | `https://your-app.vercel.app`                             | Comma-separated; add localhost for hybrid testing   |
-| `FRONTEND_URL`                 | `https://your-app.vercel.app`                             | Used in password-reset email links                  |
-| `SMTP_HOST`                    | `smtp.gmail.com`                                          |                                                     |
-| `SMTP_PORT`                    | `587`                                                     |                                                     |
-| `SMTP_USER`                    | `your-gmail@gmail.com`                                    |                                                     |
-| `SMTP_PASSWORD`                | *(Gmail App Password — 16 chars, no spaces)*              | See `.env.example` for setup instructions           |
-| `SMTP_FROM`                    | `your-gmail@gmail.com`                                    |                                                     |
-| `EMAIL_FROM_NAME`              | `UnderRoot`                                               |                                                     |
-| `DEVELOPER_EMAIL`              | *(your admin email)*                                      |                                                     |
-| `DEVELOPER_PASSWORD_HASH`      | *(bcrypt hash — generate with the provided seed utility)* | Prefer this over `DEVELOPER_PASSWORD` in production |
-| `HARDWARE_MODE`                | `mock`                                                    | No physical device on Render                        |
-| `SMS_PROVIDER`                 | `console` or `twilio`                                     |                                                     |
-| `TWILIO_ACCOUNT_SID`           | *(from Twilio dashboard)*                                 | Required only when `SMS_PROVIDER=twilio`            |
-| `TWILIO_AUTH_TOKEN`            | *(from Twilio dashboard)*                                 | Required only when `SMS_PROVIDER=twilio`            |
-| `TWILIO_FROM_NUMBER`           | `+1XXXXXXXXXX`                                            | Required only when `SMS_PROVIDER=twilio`            |
+🏭 Frontend Production Build
 
-#### Database initialisation on Render
+From the frontend directory:
 
-Tables are created automatically on first startup via SQLAlchemy `create_all()` and the
-`ensure_*` migration helpers in `app/database/migrations.py`. No manual migration command
-is needed. Existing data is never overwritten; the startup routines only add missing tables
-or columns.
+npm run build
 
-#### Persistent Disk directory initialisation
+The latest validated project state completed the production build successfully.
 
-On first deploy, create the uploads sub-directory inside the disk:
+🔒 Security Principles
 
-```bash
-mkdir -p /var/data/uploads
-```
+UnderRoot follows several important security principles:
 
-You can do this via the Render Shell tab or the start command wrapper. The application will
-also attempt to create `UPLOAD_DIR` automatically at startup via `Path(...).mkdir(parents=True, exist_ok=True)`.
-
-### Frontend — Vercel
-
-| Setting          | Value                                    |
-|------------------|------------------------------------------|
-| Root Directory   | `frontend`                               |
-| Build Command    | `npm run build`                          |
-| Output Directory | `dist`                                   |
-
-#### Vercel environment variable
-
-| Variable       | Value                                            |
-|----------------|--------------------------------------------------|
-| `VITE_API_URL` | `https://your-backend.onrender.com/api`          |
-
-Set this in the Vercel dashboard under **Settings → Environment Variables** before your first deployment.
-
-### Health check
-
-```
-GET https://your-backend.onrender.com/health
-```
-
-Returns `{"status": "ok"}`. Render uses this endpoint automatically if configured as the health-check path.
-
----
-
-## Databases
-
-### Main application database
-
-```text
-backend/smart_soil.db        (local)
-/var/data/smart_soil.db      (Render Persistent Disk)
-```
-
-Stores users, login statistics, soil tests, application reports, conversations and government schemes.
-
-### Separate soil-report database
-
-```text
-backend/soil_reports.db      (local)
-/var/data/soil_reports.db    (Render Persistent Disk)
-```
-
-Stores soil-report history independently from the main application database.
-
----
-
-## Developer access
-
-Developer Control Center:
-- Local URL: `http://localhost:5173/developer/login`
-- Production URL: `https://your-app.vercel.app/developer/login`
-
-Configure credentials in `backend/.env` via `DEVELOPER_EMAIL` and `DEVELOPER_PASSWORD_HASH`.
-Restart the backend after changing credentials.
-
-## Soil analyzer flow
-
-```text
-Soil Probe
-   ↓
-Read pH, N, P, K, EC, moisture, temperature, organic carbon
-   ↓
-Save Soil Test
-   ↓
+Passwords are not stored in plaintext.
+Email verification is required for normal login.
+Authentication-protected endpoints require valid authentication.
+Developer endpoints require developer authorization.
+User data is isolated between accounts.
+Report access is protected by ownership checks.
+Account deletion requires password confirmation.
+Secrets are stored through environment configuration.
+Administrative data is not exposed through normal user APIs.
+📊 Data Flow
+Manual Soil Test
+User
+ │
+ ▼
+Enter Soil Parameters
+ │
+ ▼
+Soil Test API
+ │
+ ▼
+Validation
+ │
+ ▼
 Soil Analyzer
-   ├─ Data completeness
-   ├─ Parameter-by-parameter status
-   ├─ Soil screening score
-   ├─ Graphical parameter profile
-   ├─ Crop recommendation
-   └─ Fertilizer recommendation
-```
+ │
+ ├── Parameter Status
+ ├── Health Score
+ ├── Deficiencies
+ └── Excesses
+ │
+ ▼
+Recommendations
+ │
+ ├── Crops
+ └── Fertilizers
+ │
+ ▼
+Report / Dashboard / AI Assistant
+Hardware Soil Test
+Soil Device
+ │
+ ▼
+Gateway / Integration
+ │
+ ▼
+Device Reading API
+ │
+ ▼
+Hardware Reading
+ │
+ ▼
+Soil Test
+ │
+ ▼
+Soil Analyzer
+ │
+ ▼
+Health + Recommendations + Report
+🧠 Soil Analysis Approach
 
-Analyzer endpoint: `GET /api/soil/tests/{test_id}/analysis`
+UnderRoot currently uses deterministic rule-based analysis for its core soil-health calculations.
 
-Recommendation endpoints (also work independently):
+This provides:
 
-```
-GET /api/recommendations/crops?soil_test_id={id}
-GET /api/recommendations/fertilizer?soil_test_id={id}
-```
+Reproducible results
+Transparent thresholds
+Consistent scoring
+Predictable recommendations
+Easier testing and validation
 
-## OCR + RAG flow
+The AI assistant operates as a decision-support layer over available soil information and knowledge sources.
 
-```text
-PDF / JPG / PNG → OCR / text extraction → Extract pH, N, P, K, EC, moisture, temperature, organic carbon
-→ User verifies extracted values → Soil Test created → Soil Analyzer
-```
+The system does not claim that AI-generated output replaces agronomic expertise.
 
-RAG knowledge base: `backend/data/knowledge/`
+🌍 Localization
 
-## Machine-learning models
+The platform is designed for agricultural users in India and supports multilingual interaction.
 
-Training script:
+Current AI assistant language support includes:
 
-```powershell
-cd backend
-python scripts/train_models.py
-```
+English
+Hindi
+Gujarati
+Marathi
 
-Generated model files:
+The architecture can be extended to additional regional languages.
 
-```text
-backend/ml_models/crop_model.joblib
-backend/ml_models/fertilizer_model.joblib
-backend/ml_models/training_metrics.json
-```
+📱 Responsive Interface
 
-These are development datasets. Replace with validated local agricultural/soil-laboratory data before field deployment.
+The frontend is designed for:
 
-## Hardware serial format
+Desktop
+Laptop
+Tablet
+Mobile
 
-JSON:
-```json
-{"ph":6.8,"nitrogen":45,"phosphorus":30,"potassium":50,"ec":0.8,"moisture":42,"temperature":24,"organic_carbon":0.7}
-```
+The interface includes dedicated workflows for:
 
-Key/value:
-```
-pH=6.8,N=45,P=30,K=50,EC=0.8,moisture=42,temperature=24,OC=0.7
-```
+Authentication
+Dashboard
+Soil analysis
+History
+Recommendations
+Reports
+Devices
+AI assistant
+Developer/admin operations
+🛡️ Data & Safety Considerations
 
-Frontend flow: `Soil Test → Select soil probe port → Read from probe → Save soil test → Soil Analyzer`
+UnderRoot is intended as a soil-health intelligence and decision-support platform.
 
-## Phone verification
+Soil recommendations can depend on factors that may not be available in a single measurement, including:
 
-Phone verification uses a 6-digit OTP. Configure Twilio in `backend/.env` for production SMS:
+Crop variety
+Local climate
+Soil type
+Irrigation
+Previous cultivation
+Farm management practices
+Geographic conditions
+Application history
 
-```env
-SMS_PROVIDER=twilio
-TWILIO_ACCOUNT_SID=your_account_sid
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_FROM_NUMBER=+1XXXXXXXXXX
-```
+Therefore, platform recommendations should be treated as decision support and validated against local agricultural conditions and qualified agronomic guidance where appropriate.
 
-If `SMS_PROVIDER=console` (default), the API returns a development OTP — do not use this in production.
+📌 Current Project Status
+Completed
+ User registration
+ Email verification
+ Login protection for unverified users
+ Resend verification
+ Forgot password
+ Password reset
+ Account deletion
+ Soil-test workflow
+ Soil parameter validation
+ Soil health scoring
+ Parameter status detection
+ Deficiency detection
+ Excess detection
+ Crop recommendations
+ Fertilizer recommendations
+ Soil-test history
+ PDF soil reports
+ Protected report downloads
+ AI soil assistant
+ Multilingual assistant support
+ Device management
+ Hardware reading ingestion
+ Hardware simulator
+ Hardware-to-soil-test pipeline
+ Developer/admin panel
+ User administration
+ Soil-test administration
+ Device administration
+ Report administration
+ Responsive frontend
+ Backend automated tests
+ Production frontend build
+🔮 Future Development
 
-## Language switching
+Potential future work includes:
 
-The language selector supports English, Hindi and Gujarati. The selected language is persisted locally
-and to the signed-in user's profile.
+Official hardware SDK integrations
+Direct supported BLE integrations
+Additional sensor protocols
+Real-time device synchronization
+Offline device synchronization
+More soil parameters
+More regional languages
+Advanced farm analytics
+Historical soil trend analysis
+Field-level monitoring
+Geospatial soil intelligence
+Improved agronomic knowledge retrieval
+Production deployment infrastructure
+Notifications and alerts
+Large-scale agricultural analytics
+🚀 Deployment Considerations
 
-## Safety note
+Before production deployment, configure:
 
-Crop and fertilizer results are decision-support screening outputs. Fertilizer dose depends on crop,
-field size, soil-test method/units, product formulation and local agricultural recommendations.
-The system intentionally does not invent a universal numeric fertilizer dose from the ML model alone.
+Production database
+Secure HTTPS
+Production frontend hosting
+Production backend hosting
+Environment secrets
+Email delivery service
+Database backups
+Logging and monitoring
+CORS configuration
+Rate limiting
+Secure authentication configuration
+Production domain configuration
+
+Development credentials and secrets must never be committed to the repository.
+
+📈 Project Vision
+
+UnderRoot aims to become a practical soil-intelligence platform that connects:
+
+Sensors + Soil Data + AI + Agronomic Knowledge + Farmers
+
+into a single decision-support ecosystem.
+
+The long-term goal is to move beyond simply reporting soil values and help users understand:
+
+What is happening in the soil, why it matters, and what action can be considered next.
+
+📜 License
+
+This project is currently under active development.
+
+License terms should be added here before public distribution or commercial release.
+
+👥 UnderRoot-AI
+
+UnderRoot is developed by the UnderRoot-AI team.
+
+GitHub Organization:
+
+https://github.com/UnderRoot-AI
+
+Repository:
+
+https://github.com/UnderRoot-AI/underroot
+
+UnderRoot — Know Your Soil. Grow Smarter.
