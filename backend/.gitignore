@@ -5,3 +5,9 @@ __pycache__/
 uploads/*
 !uploads/.gitkeep
 .env
+
+# Google OAuth 2.0 client secret JSON files - NEVER commit these
+client_secret*.json
+*googleusercontent.com.json
+token.json
+gmail_authorize.py

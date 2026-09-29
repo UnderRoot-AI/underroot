@@ -6,7 +6,8 @@ Features
 - Beautiful branded HTML emails for every event
 - Plain-text fallback in every email (multipart/alternative)
 - Async sending via ThreadPoolExecutor so FastAPI routes never block
-- Resend HTTPS API when RESEND_API_KEY is configured (production)
+- Gmail API (OAuth 2.0) when fully configured (production, preferred)
+- Resend HTTPS API when RESEND_API_KEY is configured (fallback)
 - SMTP fallback when only SMTP settings are configured (optional local dev)
 - Console fallback when neither is configured (dev mode)
 - Structured logging for every send attempt
@@ -16,6 +17,7 @@ Features
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import logging
 import secrets
@@ -149,6 +151,15 @@ def _divider() -> str:
 # Core send primitive
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _gmail_configured() -> bool:
+    return bool(
+        settings.gmail_client_id
+        and settings.gmail_client_secret
+        and settings.gmail_refresh_token
+        and settings.gmail_sender_email
+    )
+
+
 def _resend_configured() -> bool:
     return bool(settings.resend_api_key)
 
@@ -160,6 +171,45 @@ def _smtp_configured() -> bool:
         and settings.smtp_password
         and settings.smtp_from
     )
+
+
+def _do_send_gmail(to: str, subject: str, html: str, plain: str) -> None:
+    """Send via Gmail API (OAuth 2.0). Always called inside the thread pool."""
+    from google.oauth2.credentials import Credentials  # imported here so tests can patch
+    from googleapiclient.discovery import build
+
+    credentials = Credentials(
+        token=None,
+        refresh_token=settings.gmail_refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=settings.gmail_client_id,
+        client_secret=settings.gmail_client_secret,
+        scopes=["https://www.googleapis.com/auth/gmail.send"],
+    )
+
+    service = build("gmail", "v1", credentials=credentials)
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = settings.gmail_sender_email
+    msg["To"] = to
+    msg.attach(MIMEText(plain, "plain", "utf-8"))
+    msg.attach(MIMEText(html, "html", "utf-8"))
+
+    encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+    try:
+        service.users().messages().send(
+            userId="me",
+            body={"raw": encoded_message},
+        ).execute()
+        logger.info("gmail email sent to=%s subject=%r", to, subject)
+    except Exception as exc:
+        logger.error(
+            "gmail email failed to=%s subject=%r error_type=%s error=%s",
+            to, subject, type(exc).__name__, exc,
+        )
+        raise
 
 
 def _do_send_resend(to: str, subject: str, html: str, plain: str) -> None:
@@ -229,14 +279,18 @@ def send_email(to: str, subject: str, html: str, plain: str) -> bool:
     the FastAPI request cycle.
 
     Priority:
-      1. Resend HTTPS API  — when RESEND_API_KEY is set (production)
-      2. SMTP              — when SMTP_HOST/USER/PASSWORD/FROM are all set
-      3. Console log       — development fallback (no delivery)
+      1. Gmail API (OAuth 2.0) — when all four GMAIL_* settings are present
+      2. Resend HTTPS API      — when RESEND_API_KEY is set (fallback)
+      3. SMTP                  — when SMTP_HOST/USER/PASSWORD/FROM are all set
+      4. Console log           — development fallback (no delivery)
 
-    Returns True when an actual delivery provider is configured (Resend or
-    SMTP), False when falling back to console logging.  Callers use this to
-    decide whether to expose raw URLs in API responses.
+    Returns True when an actual delivery provider is configured, False when
+    falling back to console logging.  Callers use this to decide whether to
+    expose raw URLs in API responses.
     """
+    if _gmail_configured():
+        _pool.submit(_do_send_gmail, to, subject, html, plain)
+        return True
     if _resend_configured():
         _pool.submit(_do_send_resend, to, subject, html, plain)
         return True
