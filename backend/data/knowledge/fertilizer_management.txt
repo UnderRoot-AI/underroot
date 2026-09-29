@@ -1,19 +1,21 @@
-Urea (46% N) is the most common nitrogen fertilizer. Apply in splits: half at sowing, half 30 days later. Avoid applying before heavy rain as it can wash away. 1 bag (50 kg) urea gives about 23 kg nitrogen. Cost-effective but must be applied carefully.
+Improving low nitrogen: Apply Urea (46% N) at 1 bag (45 kg) per acre, split into two applications - half at sowing and half 30 days later. DAP (Di-Ammonium Phosphate, 18:46:0) also provides nitrogen alongside phosphorus and can be used at sowing time at 1 bag per acre.
 
-DAP (Di-Ammonium Phosphate, 18-46-0) provides both nitrogen and phosphorus. Best applied at sowing time mixed into the soil. 1 bag (50 kg) gives 9 kg N and 23 kg P2O5.
+Improving low phosphorus: Apply DAP at 1 bag (50 kg) per acre at sowing time for combined N and P deficiency. If only phosphorus is low, use SSP (Single Super Phosphate) at 25 kg per acre mixed into soil before planting.
 
-SSP (Single Super Phosphate, 16% P2O5) is a cheaper phosphorus option. Also provides sulfur and calcium. Good for oilseeds and pulses.
+Improving low potassium: Apply MOP (Muriate of Potash, 60% K2O) at 25-30 kg per acre at sowing time. Potassium improves drought resistance, disease resistance, and grain/fruit quality.
 
-MOP (Muriate of Potash, 60% K2O) is the main potassium fertilizer. Apply at sowing. Potassium makes the crop strong and resistant to disease. 1 bag (50 kg) gives 30 kg K2O.
+When both nitrogen and phosphorus are deficient: DAP (18:46:0) at 1 bag per acre at sowing, plus half a bag of Urea 30 days after sowing, is the recommended treatment.
 
-NPK mixed fertilizers (like 10-26-26 or 12-32-16) give all three nutrients together. Useful when multiple nutrients are low at the same time.
+Organic carbon improvement: Apply 4-5 tonnes of well-rotted farmyard manure (Gobar Khad) or 2-3 trolley-loads per acre 2-3 weeks before sowing. Add neem cake (50 kg per acre) alongside to protect roots. Green manure crops like Dhaincha (Sesbania) or cowpea can be grown and ploughed in. Avoid burning crop residues.
 
-Organic compost (Gobar khad, vermicompost) improves soil health over time. Apply 5 to 10 tonnes per hectare before sowing. It is slow acting but long lasting. Builds up organic carbon and soil life.
+Saline soil treatment (high EC): Apply Gypsum (Calcium Sulphate) at 200-400 kg per acre before sowing and irrigate to leach salts below the root zone. Ensure good drainage. Choose salt-tolerant crops like barley, sugarbeet, or cotton.
 
-Zinc Sulphate helps when soil zinc is low (common in Indian soils). Apply 25 kg/hectare. Zinc deficiency shows as yellowing between leaf veins in young leaves.
+Acidic soil treatment (low pH): Apply lime (Calcium Carbonate or Quick Lime) at rates recommended by KVK based on your specific pH. Usually 1-2 tonnes per acre for moderately acidic soils. Dolomite lime also adds magnesium.
 
-When nitrogen is low: use Urea or DAP. When phosphorus is low: use DAP or SSP. When potassium is low: use MOP. When all three are low: use a balanced NPK fertilizer. When soil organic matter is low: add compost.
+Alkaline soil treatment (high pH): Incorporate organic matter (compost, green manure). Grow acid-tolerant crops in the short term: potato, groundnut. Gypsum application can help in sodic soils.
 
-Dose guidance (general reference only — always confirm with a soil test result): Wheat needs about 120 kg N, 60 kg P, 40 kg K per hectare. Maize needs about 150 kg N, 75 kg P, 60 kg K. Rice needs about 100 kg N, 50 kg P, 50 kg K. These are typical ranges — your actual soil test will tell you what is missing.
+Fertilizer safety precautions: Never apply Urea when soil is wet or just before heavy rain - it will be washed away. Apply in the evening to reduce volatilisation. Do not mix Urea with DAP or MOP before applying. Always water the field after applying solid fertilizers.
 
-Never guess fertilizer dose. Use your soil test report and ask your local Krishi Vigyan Kendra (KVK) or agriculture officer for the correct dose for your crop and field size.
+ICAR (Indian Council of Agricultural Research) recommends regular soil testing every 2-3 years to track nutrient trends and adjust fertilizer use efficiently. Soil testing helps farmers avoid both under-fertilizing (which reduces yield) and over-fertilizing (which wastes money and harms the environment).
+
+State Department of Agriculture: Farmers can get subsidized soil testing and fertilizer advice from their nearest Krishi Vigyan Kendra (KVK). KVK officers provide crop-specific recommendations based on soil test values.

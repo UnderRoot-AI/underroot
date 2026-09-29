@@ -1,23 +1,31 @@
-Wheat (Gehun) grows best in cool weather (Rabi season, sown October-November). It needs a pH of 6 to 7.5, moderate nitrogen, and good drainage. It takes about 120 days to harvest. It is the main winter crop in north and central India.
+Wheat (Gehun) grows best in cool weather (Rabi season, sown October-November). It needs a pH of 6 to 7.5, moderate nitrogen (150+ kg/ha), and good drainage. It takes about 120 days to harvest. Wheat is suitable for most Indian soils with good irrigation.
 
-Maize (Makka) is a Kharif crop sown in June-July. It grows fast and needs plenty of nitrogen and water especially when the plant is young. pH 5.8 to 7.5 is suitable. Harvest comes in 90 to 110 days.
+Maize (Makka) is a Kharif crop sown in June-July. It grows fast and needs plenty of nitrogen and water especially when the plant is young. pH 5.8 to 7.5 is suitable. Harvest comes in 90 to 110 days. Maize needs nitrogen > 150 kg/ha for good yield.
 
-Rice (Dhan/Chawal) needs a lot of water (flooded fields or frequent irrigation). It is grown in Kharif season. pH 5.5 to 7 is best. Takes 120 to 150 days. It is the main crop of eastern and southern India.
+Rice (Dhan/Chawal) needs a lot of water (flooded fields or frequent irrigation). It is grown in Kharif season. pH 5.5 to 7 is best. Takes 120 to 150 days. Suitable when soil moisture is high (30%+).
 
-Groundnut (Moongfali) likes well-drained sandy-loam soil with pH 6 to 7. Too much water causes disease. Rabi or Kharif depending on region. Ready in 110 to 130 days.
+Groundnut (Moongfali) likes well-drained sandy-loam soil with pH 6 to 7. Too much water causes disease. Rabi or Kharif depending on region. Ready in 110 to 130 days. Groundnut is a legume that adds nitrogen to soil.
 
-Cotton (Kapas) grows in black cotton soil (Vertisols) and can handle alkaline soil up to pH 8. Needs warm temperature and water during growth. Takes 160 to 200 days. Kharif crop.
+Cotton (Kapas) grows in black cotton soil (Vertisols) and can handle alkaline soil up to pH 8. Needs warm temperature and water during growth. Takes 160 to 200 days. Kharif crop. Suitable for high potassium soils.
 
-Potato (Aloo) prefers slightly acidic soil (pH 5 to 6.5) and cool temperature (15-20°C). Well-drained loose soil is best. Rabi crop. Ready in 80 to 110 days.
+Potato (Aloo) prefers slightly acidic soil (pH 5 to 6.5) and cool temperature (15-20C). Well-drained loose soil is best. Rabi crop. Ready in 80 to 110 days. Good for acidic soils.
 
-Chickpea (Chana) is a Rabi legume that fixes nitrogen from air. Grows well in light soils pH 6 to 8. Drought tolerant once established. Ready in 90 to 110 days.
+Chickpea (Chana) is a Rabi legume that fixes nitrogen from air. Grows well in light soils pH 6 to 8. Drought tolerant once established. Ready in 90 to 110 days. Good choice when soil nitrogen is already low.
 
-Mustard (Sarson) is a Rabi oilseed crop. Good for alkaline soils, pH 6 to 8. Grows in 90 to 120 days. Needs cool temperature to start.
+Mustard (Sarson) is a Rabi oilseed crop. Good for alkaline soils, pH 6 to 8. Grows in 90 to 120 days. Needs cool temperature to start. Suitable when soil pH is 7.5-8.5.
 
-Soybean grows in Kharif season. Needs pH 6 to 7. Moderate water. Ready in 90 to 100 days. Good for soil nitrogen because it is a legume.
+Soybean grows in Kharif season. Needs pH 6 to 7. Moderate water. Ready in 90 to 100 days. Good for soil nitrogen because it is a legume. Suitable when nitrogen is low.
 
-Bajra (Pearl Millet) is very drought tolerant. Grows in sandy soil with low rainfall. pH 6 to 7.5. Kharif crop. Ready in 70 to 90 days. Good for dry regions.
+Bajra (Pearl Millet) is very drought tolerant. Grows in sandy soil with low rainfall. pH 6 to 7.5. Kharif crop. Ready in 70 to 90 days. Good for dry regions with low moisture soils.
 
 Jowar (Sorghum) is a Kharif crop tolerant of dry conditions. pH 6 to 7.5. Needs less water than maize or rice. Ready in 90 to 120 days.
 
-When choosing a crop, think about: your soil test values, water availability, local market price, season, and what you have grown before (crop rotation is important to prevent disease buildup).
+Barley (Jau) handles alkaline soils well. pH 6 to 8.5. Rabi crop. Ready in 110-120 days. Best choice when pH is above 7.5 or 8.
+
+Sugarcane needs well-drained fertile soil. pH 6 to 7.5. High potassium and nitrogen requirements. Takes 12-18 months. Kharif planting (February-March or June-July).
+
+Pigeonpea (Arhar/Tur) has deep roots and handles variable moisture well. Sow at monsoon start. Drought-tolerant once established. Fixes nitrogen - good to grow before a cereal crop.
+
+Crop rotation principle: Legumes (chickpea, soybean, groundnut, pigeonpea) should be rotated with cereals (wheat, maize, rice) to restore nitrogen and break pest cycles. Avoid growing the same crop in the same field every year.
+
+When choosing a crop, consider: your soil test values, water availability, local market price, season, and crop rotation history. pH is the most important parameter for initial crop selection. Nitrogen availability determines whether high-demand crops like wheat and maize will do well.
